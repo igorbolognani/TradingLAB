@@ -208,3 +208,46 @@ def test_final_close_decision_is_preserved_without_a_future_session(
     assert final_signal["action"] == "enter"
     assert final_signal["order_eligibility_session"] is None
     assert final_signal["fill_status"] == "no_next_session"
+
+
+def test_adapter_signal_decisions_are_prefix_invariant_for_stateful_strategies(
+    spec_dir: Path,
+) -> None:
+    sessions = regular_sessions(date(2025, 1, 2), date(2025, 3, 14))
+    pattern = [100, 101, 103, 96, 92, 99, 104, 105, 94, 89]
+    closes = [float(pattern[index % len(pattern)]) for index in range(len(sessions))]
+    data = normalized_market_frame(sessions, closes=closes, opens=closes)
+    cases: tuple[tuple[str, dict[str, float | int]], ...] = (
+        ("TREND_SMA200_V1", {"sma": 3}),
+        (
+            "MEANREV_Z20_V1",
+            {"lookback": 3, "entry_z": -0.8, "exit_z": 0.0, "max_hold": 4},
+        ),
+    )
+    core = ["decision_session", "action", "reason", "indicator_value"]
+    for strategy_id, parameters in cases:
+        full = run(
+            spec_dir,
+            strategy_id,
+            data,
+            parameters,
+            sessions[3].date(),
+            sessions[-1].date(),
+        )
+        assert not full.signals.empty
+        for cut in (10, 20, 30, 40):
+            prefix = run(
+                spec_dir,
+                strategy_id,
+                data.iloc[: cut + 1],
+                parameters,
+                sessions[3].date(),
+                sessions[cut].date(),
+            )
+            cutoff = sessions[cut].date().isoformat()
+            expected = full.signals[
+                full.signals["decision_session"].notna()
+                & (full.signals["decision_session"] <= cutoff)
+            ][core].reset_index(drop=True)
+            actual = prefix.signals[core].reset_index(drop=True)
+            pd.testing.assert_frame_equal(actual, expected)

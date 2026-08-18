@@ -1,12 +1,13 @@
 """Static per-trial and aggregate research reports."""
 
+import json
 from pathlib import Path
 from typing import Any
 
 import matplotlib
 import pandas as pd
 
-from tradinglab.hashing import canonical_json_bytes, sha256_bytes
+from tradinglab.hashing import canonical_json_bytes, sha256_bytes, sha256_file
 
 matplotlib.use("Agg")
 from matplotlib import pyplot as plt
@@ -89,9 +90,13 @@ def render_trial_report(
 - Strategy: `{manifest["strategy_id"]}` version `{manifest["strategy_version"]}`
 - Specification hash: `{manifest["spec_hash"]}`
 {git_line}
-- Dataset: `{manifest["dataset_id"]}` / `{manifest["dataset_checksum"]}`
+- Dataset: `{manifest["dataset_id"]}` / content `{manifest["dataset_checksum"]}`
+  / manifest `{manifest["dataset_manifest_hash"]}` / asset normalized
+  `{manifest["asset_dataset_checksum"]}`
 {period_line}
 - Purpose: `{manifest["purpose"]}`
+- Evidence class: `{manifest["evidence_class"]}`
+- Matching benchmark trial: `{manifest.get("benchmark_trial_id")}`
 - Parameters: `{manifest["parameters"]}`
 
 ## Causal, price, and execution assumptions
@@ -154,7 +159,12 @@ def plot_equity(equity_curve: pd.DataFrame, path: Path, title: str) -> None:
     plt.close(figure)
 
 
-def aggregate_report(rows: pd.DataFrame, output_root: Path, experiment_id: str) -> Path:
+def aggregate_report(
+    rows: pd.DataFrame,
+    output_root: Path,
+    experiment_id: str,
+    registry_events: list[dict[str, Any]] | None = None,
+) -> Path:
     """Create a new immutable cross-asset/temporal/sensitivity report directory."""
 
     if rows.empty:
@@ -162,21 +172,44 @@ def aggregate_report(rows: pd.DataFrame, output_root: Path, experiment_id: str) 
     analytical_columns = sorted(
         column for column in rows.columns if column not in {"trial_id", "artifact_dir"}
     )
+    experiment_events = [
+        event
+        for event in (registry_events or [])
+        if event.get("experiment_id") == experiment_id
+    ]
+    failed_count = sum(
+        event.get("event_type") == "failed" for event in experiment_events
+    )
+    started_ids = {
+        event.get("trial_id")
+        for event in experiment_events
+        if event.get("event_type") == "started"
+    }
+    terminal_ids = {
+        event.get("trial_id")
+        for event in experiment_events
+        if event.get("event_type") in {"completed", "failed"}
+    }
+    incomplete_count = len(started_ids.difference(terminal_ids))
     report_hash = sha256_bytes(
         canonical_json_bytes(
-            _json_records(
-                rows.loc[:, analytical_columns].sort_values(
-                    analytical_columns, kind="stable"
-                )
-            )
+            {
+                "rows": _json_records(
+                    rows.loc[:, analytical_columns].sort_values(
+                        analytical_columns, kind="stable"
+                    )
+                ),
+                "registry_status": {
+                    "failed_trials": failed_count,
+                    "incomplete_trials": incomplete_count,
+                },
+            }
         )
     )
     report_id = f"report_{experiment_id}_{report_hash[:12]}"
     directory = output_root / report_id
     if directory.exists():
-        expected = directory / "all_trials.csv"
-        if not expected.is_file():
-            raise FileExistsError(f"incomplete immutable report directory: {directory}")
+        _validate_aggregate_report(directory, experiment_id, report_hash)
         return directory
     directory.mkdir(parents=True, exist_ok=False)
     rows.sort_values(
@@ -233,6 +266,8 @@ This report preserves every asset and split separately. Median and worst
 cross-asset summaries are descriptive and never replace individual results.
 Primary configurations remain frozen; sensitivity results do not promote a
 winner. Small-trade-count warnings: {small_count} trials below five lifecycles.
+Completed input trials: {len(rows)}. Failed registry trials: {failed_count}.
+Started trials without a terminal event: {incomplete_count}.
 
 {chr(10).join(sections)}
 
@@ -248,4 +283,50 @@ The detailed tables are `all_trials.csv`, `cross_asset_summary.csv`, and
 > {RESEARCH_WARNING}
 """
     (directory / "report.md").write_text(markdown, encoding="utf-8")
+    names = (
+        "all_trials.csv",
+        "cross_asset_summary.csv",
+        "sensitivities.csv",
+        "report.md",
+    )
+    report_manifest = {
+        "version": "tradinglab/aggregate-report/v1",
+        "experiment_id": experiment_id,
+        "analytical_report_hash": report_hash,
+        "files": {name: sha256_file(directory / name) for name in names},
+    }
+    (directory / "report_manifest.json").write_bytes(
+        canonical_json_bytes(report_manifest)
+    )
     return directory
+
+
+def _validate_aggregate_report(
+    directory: Path, experiment_id: str, report_hash: str
+) -> None:
+    manifest_path = directory / "report_manifest.json"
+    if not manifest_path.is_file():
+        raise FileExistsError(f"incomplete immutable report directory: {directory}")
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"invalid immutable report manifest: {directory}") from exc
+    if (
+        manifest.get("version") != "tradinglab/aggregate-report/v1"
+        or manifest.get("experiment_id") != experiment_id
+        or manifest.get("analytical_report_hash") != report_hash
+    ):
+        raise ValueError(f"immutable report identity mismatch: {directory}")
+    files = manifest.get("files")
+    expected_names = {
+        "all_trials.csv",
+        "cross_asset_summary.csv",
+        "sensitivities.csv",
+        "report.md",
+    }
+    if not isinstance(files, dict) or set(files) != expected_names:
+        raise ValueError(f"immutable report inventory mismatch: {directory}")
+    for name, expected_hash in files.items():
+        path = directory / name
+        if not path.is_file() or sha256_file(path) != expected_hash:
+            raise ValueError(f"immutable report artifact changed: {path}")

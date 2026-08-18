@@ -65,7 +65,14 @@ uv run tradinglab run --help
 uv run tradinglab run-battery --help
 uv run tradinglab report --help
 uv run tradinglab registry --help
+uv run tradinglab reproduce --help
 ```
+
+The generic `run` command cannot access Project Holdout. Non-control trials
+must name their exact matching registered Buy & Hold trial. The controlled
+holdout command is released only after the same clean experiment contains the
+complete ordered Development and Validation OOS batteries; interrupted access
+requires the explicit resume flag and never reruns completed configurations.
 
 Generated market snapshots, registry events, trial artifacts, and reports are
 kept local by `.gitignore`. Detailed contracts and completion evidence live in
@@ -73,4 +80,3 @@ kept local by `.gitignore`. Detailed contracts and completion evidence live in
 
 Historical performance is research evidence only and does not prove future
 profitability, paper-trading readiness, or live-trading suitability.
-

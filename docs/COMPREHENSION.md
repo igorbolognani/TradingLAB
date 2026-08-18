@@ -13,10 +13,18 @@
 5. Canonical metrics consume only those ledgers. Trials bind code, spec, data,
    assumptions, metrics, and reports through immutable IDs and append-only
    events.
+6. Non-control trials reference the exact matching Buy & Hold trial. A trial
+   inventory binds all human- and machine-readable artifacts; aggregate reports
+   have their own immutable inventory.
+7. The holdout gate is enforced below the CLI. It checks the exact ordered
+   Development and Validation event topology and issues a fingerprint-bound
+   internal capability for only the missing holdout configurations.
 
 The fragile boundaries are session timezone/calendar normalization, adjusted
 OHLC coherence, split-boundary warm-up without P&L carry, max-hold counting,
-and preventing friction from being charged twice.
+preventing friction from being charged twice, distinguishing analytical
+equivalence from provenance reproduction, and never allowing an alternate path
+around holdout governance.
 
 ## Knowledge gaps
 

@@ -1,3 +1,4 @@
+import json
 from datetime import date
 from pathlib import Path
 
@@ -9,6 +10,7 @@ from conftest import StaticSource, raw_provider_frame
 from tradinglab.calendar import regular_sessions
 from tradinglab.data import SnapshotStore, normalize_provider_frame
 from tradinglab.data_source import ProviderFrame, RetrievalRequest
+from tradinglab.hashing import canonical_json_bytes, sha256_bytes
 
 
 def provider(frame: pd.DataFrame) -> ProviderFrame:
@@ -126,6 +128,7 @@ def test_snapshot_manifest_hashes_ranges_and_refresh_identity(
     assert first["dataset_id"] != second["dataset_id"]
     assert first["checksums"] == second["checksums"]
     assert first["dataset_checksum"] == second["dataset_checksum"]
+    assert first["manifest_hash"] != second["manifest_hash"]
     assert first["requested_start"] == "2025-01-02"
     assert first["requested_end_exclusive"] == "2025-01-11"
     assert first["effective_first_session"]["SPY"] == "2025-01-02"
@@ -157,6 +160,38 @@ def test_snapshot_corruption_is_detected(
     path.write_text(path.read_text(encoding="utf-8") + "corrupt\n", encoding="utf-8")
     with pytest.raises(ValueError, match="checksum mismatch"):
         store.validate_dataset(manifest["dataset_id"])
+
+
+def test_snapshot_manifest_metadata_tampering_is_detected(
+    tmp_path: Path,
+    fixture_request: RetrievalRequest,
+    static_source: StaticSource,
+) -> None:
+    store = SnapshotStore(tmp_path, source=static_source)
+    manifest = store.fetch_dataset(fixture_request)
+    path = tmp_path / manifest["dataset_id"] / "manifest.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["provider_version"] = "tampered"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="provenance hash mismatch"):
+        store.validate_dataset(str(manifest["dataset_id"]))
+
+
+def test_snapshot_identity_binds_query_metadata_even_after_manifest_rehash(
+    tmp_path: Path,
+    fixture_request: RetrievalRequest,
+    static_source: StaticSource,
+) -> None:
+    store = SnapshotStore(tmp_path, source=static_source)
+    manifest = store.fetch_dataset(fixture_request)
+    path = tmp_path / manifest["dataset_id"] / "manifest.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["exact_query_arguments"]["auto_adjust"] = True
+    unhashed = {key: value for key, value in payload.items() if key != "manifest_hash"}
+    payload["manifest_hash"] = sha256_bytes(canonical_json_bytes(unhashed))
+    path.write_bytes(canonical_json_bytes(payload))
+    with pytest.raises(ValueError, match="identity does not match"):
+        store.validate_dataset(str(manifest["dataset_id"]))
 
 
 def test_snapshot_roundtrip_handles_mixed_est_and_edt_offsets(tmp_path: Path) -> None:

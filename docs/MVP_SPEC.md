@@ -28,7 +28,10 @@ frontends, servers, databases, and cloud infrastructure.
   installed provider version, signature, exact arguments, source index/timezone,
   effective range, row counts, missing values, missing sessions, and hashes.
 - A refresh creates a new immutable dataset identity and never overwrites a
-  prior snapshot.
+  prior snapshot. The dataset ID is rederived from the complete canonical
+  provenance payload (including exact query and normalization metadata), while
+  a separate manifest hash binds the ID and full manifest. Rehashing altered
+  metadata cannot preserve the original dataset identity.
 
 The installed yfinance 1.6.0 connector uses these exact `Ticker.history`
 semantics: `period=None`, explicit start and exclusive end, `interval="1d"`,
@@ -95,8 +98,16 @@ authoritative for exact V0.1 accounting.
 | Validation OOS | 2015-01-01 to 2019-12-31 |
 | Project Holdout | 2020-01-01 to 2025-12-31 |
 
-The holdout is executed only as the controlled final battery. Viewing it marks
-it seen; later changes require a new strategy version and new immutable trials.
+The holdout is executable only through the controlled battery capability; the
+generic single-trial path rejects it before writing a registry event. Release
+requires one clean committed experiment with the exact Development battery
+completed before the exact Validation OOS battery, using the same dataset
+manifest, dependency lock, engine, code commit, and current specification
+hashes. First access appends one irreversible `holdout_seen` event containing
+that battery fingerprint. An explicit resume may run only configurations still
+missing from the same fingerprint after an interruption; it never duplicates a
+completed configuration. Later code or specification changes require a new
+strategy version and new immutable trials.
 
 ## Strategies and validation battery
 
@@ -124,9 +135,21 @@ the same split and friction.
 
 Each immutable trial directory contains `manifest.json`, `metrics.csv`,
 `trades.csv`, `equity_curve.csv`, `signals.csv`, `report.md`, and `plots/` when
-applicable. Volatile identity metadata is excluded from canonical analytical
-hashes. The append-only JSONL registry writes `started` before execution and a
-terminal `completed` or `failed` event afterward.
+applicable, plus `artifact_inventory.json`. The registry binds the inventory
+hash; the inventory binds every CSV, the manifest, report, and plot. Volatile
+identity metadata is excluded from canonical analytical hashes, while full
+reproduction additionally requires identical clean Git provenance, dependency
+lock, Python/engine versions, specification hash, authenticated dataset
+manifest, benchmark artifacts, and intact artifact inventory. The append-only
+JSONL registry writes `started` before execution and a terminal `completed` or
+`failed` event afterward. Aggregate report directories likewise contain a
+checksummed `report_manifest.json` and reject changed pre-existing content.
+
+Matching-asset strategy deltas require the registered Buy & Hold trial from the
+same experiment, dataset manifest, split, asset, friction, code, lock, and
+engine state. Free-floating benchmark metric dictionaries are not accepted.
+Debug and synthetic purposes are explicitly labeled non-evidence and cannot be
+confused with market-history trials.
 
 ## Deferred decisions
 

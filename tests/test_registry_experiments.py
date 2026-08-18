@@ -8,10 +8,21 @@ from pathlib import Path
 import pytest
 from conftest import SPEC_DIR, StaticSource, raw_provider_frame
 
+from tradinglab.constants import ASSETS
 from tradinglab.data import SnapshotStore
 from tradinglab.data_source import RetrievalRequest
-from tradinglab.experiments import ExperimentRunner, TrialRequest, new_experiment_id
+from tradinglab.experiments import (
+    ExperimentRunner,
+    TrialRequest,
+    _assert_development_validation_readiness,
+    _configuration_id,
+    battery_configurations,
+    completed_experiment_rows,
+    new_experiment_id,
+    run_battery,
+)
 from tradinglab.registry import TrialRegistry, utc_now
+from tradinglab.reports import aggregate_report
 
 
 def test_registry_appends_without_mutating_prior_bytes(tmp_path: Path) -> None:
@@ -31,6 +42,19 @@ def test_registry_appends_without_mutating_prior_bytes(tmp_path: Path) -> None:
     ]
 
 
+def test_registry_marks_holdout_seen_irreversibly(tmp_path: Path) -> None:
+    registry = TrialRegistry(tmp_path / "events.jsonl")
+    assert registry.holdout_seen() is False
+    registry.append(
+        {
+            "event_type": "holdout_seen",
+            "created_at": utc_now(),
+            "experiment_id": "exp-final",
+        }
+    )
+    assert registry.holdout_seen() is True
+
+
 def _git(project: Path, *args: str) -> None:
     env = {
         **os.environ,
@@ -44,19 +68,26 @@ def _git(project: Path, *args: str) -> None:
     )
 
 
-def mini_project(tmp_path: Path, project_root: Path) -> tuple[Path, str]:
+def mini_project(
+    tmp_path: Path, project_root: Path, *, validation_warmup: bool = True
+) -> tuple[Path, str]:
     project = tmp_path / "project"
     project.mkdir()
     _git(project, "init", "-b", "main")
     shutil.copy(project_root / "uv.lock", project / "uv.lock")
+    shutil.copy(project_root / ".gitignore", project / ".gitignore")
     shutil.copytree(SPEC_DIR, project / "strategy_specs")
-    _git(project, "add", "uv.lock", "strategy_specs")
+    _git(project, "add", ".gitignore", "uv.lock", "strategy_specs")
     _git(project, "commit", "-m", "fixture")
-    frame = raw_provider_frame(date(2020, 1, 2), date(2020, 1, 10))
+    start = date(2014, 12, 19) if validation_warmup else date(2020, 1, 2)
+    end = date(2015, 1, 9) if validation_warmup else date(2020, 1, 10)
+    frame = raw_provider_frame(start, end)
     store = SnapshotStore(project / "data" / "snapshots", source=StaticSource(frame))
     manifest = store.fetch_dataset(
         RetrievalRequest(
-            symbols=("SPY",), start=date(2020, 1, 2), end_exclusive=date(2020, 1, 11)
+            symbols=("SPY",),
+            start=start,
+            end_exclusive=date(2015, 1, 10) if validation_warmup else date(2020, 1, 11),
         )
     )
     return project, str(manifest["dataset_id"])
@@ -72,7 +103,7 @@ def test_completed_trial_manifest_artifacts_immutability_and_reproduction(
         spec_path=project / "strategy_specs" / "BUY_HOLD_V1.yaml",
         dataset_id=dataset_id,
         asset="SPY",
-        split_key="project_holdout",
+        split_key="validation_oos",
         parameters={},
         friction_bps=5,
         purpose="primary",
@@ -86,7 +117,15 @@ def test_completed_trial_manifest_artifacts_immutability_and_reproduction(
         first.manifest["canonical_analytical_hash"]
         == second.manifest["canonical_analytical_hash"]
     )
-    assert runner.reproduce(first.trial_id) is True
+    reproduction = runner.reproduce(first.trial_id)
+    assert reproduction == {
+        "trial_id": first.trial_id,
+        "analytical_equivalence": True,
+        "provenance_match": True,
+        "artifacts_intact": True,
+        "reproduced": True,
+        "reasons": [],
+    }
     for name in (
         "manifest.json",
         "metrics.csv",
@@ -95,6 +134,7 @@ def test_completed_trial_manifest_artifacts_immutability_and_reproduction(
         "signals.csv",
         "report.md",
         "plots/equity_curve.png",
+        "artifact_inventory.json",
     ):
         assert (first.artifact_dir / name).is_file()
     required = {
@@ -111,6 +151,7 @@ def test_completed_trial_manifest_artifacts_immutability_and_reproduction(
         "engine_version",
         "dataset_id",
         "dataset_checksum",
+        "dataset_manifest_hash",
         "asset",
         "temporal_split",
         "parameters",
@@ -130,13 +171,217 @@ def test_completed_trial_manifest_artifacts_immutability_and_reproduction(
         "native_final_equity",
         "reconciles_within_one_microdollar",
     }.issubset(first.manifest["engine_reference"])
-    assert runner.registry.holdout_seen() is True
+    assert first.manifest["engine_reference"]["reconciles_within_one_microdollar"]
+    assert runner.registry.holdout_seen() is False
+
+    _git(project, "commit", "--allow-empty", "-m", "changed provenance")
+    changed_code_state = runner.reproduce(first.trial_id)
+    assert changed_code_state["analytical_equivalence"] is True
+    assert changed_code_state["provenance_match"] is False
+    assert changed_code_state["reproduced"] is False
+    assert "git_commit differs from the recorded trial" in changed_code_state["reasons"]
+
+    (first.artifact_dir / "report.md").write_text("tampered\n", encoding="utf-8")
+    tampered = runner.reproduce(first.trial_id)
+    assert tampered["analytical_equivalence"] is True
+    assert tampered["artifacts_intact"] is False
+    assert tampered["reproduced"] is False
+    assert "artifact hash differs: report.md" in tampered["reasons"]
+
+
+def test_direct_holdout_trial_is_blocked_before_registry_write(
+    tmp_path: Path, project_root: Path
+) -> None:
+    project, dataset_id = mini_project(tmp_path, project_root)
+    runner = ExperimentRunner(project)
+    with pytest.raises(ValueError, match="controlled battery gate"):
+        runner.run_trial(
+            TrialRequest(
+                spec_path=project / "strategy_specs" / "BUY_HOLD_V1.yaml",
+                dataset_id=dataset_id,
+                asset="SPY",
+                split_key="project_holdout",
+                parameters={},
+                friction_bps=5,
+                purpose="primary",
+                experiment_id=new_experiment_id(),
+            )
+        )
+    assert runner.registry.events() == []
+
+
+def test_holdout_battery_requires_complete_development_and_validation(
+    tmp_path: Path, project_root: Path
+) -> None:
+    project, dataset_id = mini_project(tmp_path, project_root)
+    with pytest.raises(ValueError, match="development is not the exact complete"):
+        run_battery(
+            project,
+            dataset_id=dataset_id,
+            split_keys=("project_holdout",),
+            confirm_holdout=True,
+            experiment_id=new_experiment_id(),
+        )
+    assert TrialRegistry(project / "registry" / "events.jsonl").events() == []
+
+
+def test_holdout_readiness_requires_exact_complete_ordered_batteries() -> None:
+    events: list[dict[str, object]] = []
+    for split in ("development", "validation_oos"):
+        for asset in ASSETS:
+            for index, (strategy, parameters, friction, purpose) in enumerate(
+                battery_configurations()
+            ):
+                trial_id = f"{split}-{asset}-{index}"
+                common = {
+                    "trial_id": trial_id,
+                    "temporal_split": split,
+                    "configuration_id": _configuration_id(
+                        asset,
+                        split,
+                        strategy,
+                        parameters,
+                        friction,
+                        purpose,
+                    ),
+                }
+                events.append({**common, "event_type": "started"})
+                events.append({**common, "event_type": "completed"})
+    _assert_development_validation_readiness(events)
+
+    duplicated = [*events, dict(events[-1])]
+    with pytest.raises(ValueError, match="exact complete closed battery"):
+        _assert_development_validation_readiness(duplicated)
+
+    reordered = [events[-2], *events[:-2], events[-1]]
+    with pytest.raises(ValueError, match=r"Validation|validation began"):
+        _assert_development_validation_readiness(reordered)
+
+
+def test_non_control_requires_matching_registered_buy_hold(
+    tmp_path: Path, project_root: Path
+) -> None:
+    project, dataset_id = mini_project(tmp_path, project_root)
+    runner = ExperimentRunner(project)
+    experiment_id = new_experiment_id()
+    benchmark = runner.run_trial(
+        TrialRequest(
+            spec_path=project / "strategy_specs" / "BUY_HOLD_V1.yaml",
+            dataset_id=dataset_id,
+            asset="SPY",
+            split_key="validation_oos",
+            parameters={},
+            friction_bps=5,
+            purpose="primary",
+            experiment_id=experiment_id,
+        )
+    )
+    before = len(runner.registry.events())
+    with pytest.raises(ValueError, match="matching Buy & Hold trial id"):
+        runner.run_trial(
+            TrialRequest(
+                spec_path=project / "strategy_specs" / "TREND_SMA200_V1.yaml",
+                dataset_id=dataset_id,
+                asset="SPY",
+                split_key="validation_oos",
+                parameters={"sma": 150},
+                friction_bps=5,
+                purpose="parameter_sensitivity",
+                experiment_id=experiment_id,
+            )
+        )
+    assert len(runner.registry.events()) == before
+    candidate = runner.run_trial(
+        TrialRequest(
+            spec_path=project / "strategy_specs" / "TREND_SMA200_V1.yaml",
+            dataset_id=dataset_id,
+            asset="SPY",
+            split_key="validation_oos",
+            parameters={"sma": 150},
+            friction_bps=5,
+            purpose="parameter_sensitivity",
+            experiment_id=experiment_id,
+            benchmark_trial_id=benchmark.trial_id,
+        )
+    )
+    assert candidate.manifest["benchmark_trial_id"] == benchmark.trial_id
+    assert set(candidate.manifest["benchmark_deltas"]) == {
+        "delta_CAGR_vs_buy_hold",
+        "delta_Sharpe_vs_buy_hold",
+        "delta_max_drawdown_vs_buy_hold",
+    }
+    assert runner.reproduce(candidate.trial_id)["reproduced"] is True
+
+
+@pytest.mark.parametrize(
+    ("purpose", "evidence_class"),
+    [
+        ("debug", "debug_non_evidence"),
+        ("synthetic", "synthetic_non_market"),
+    ],
+)
+def test_debug_and_synthetic_trials_are_explicitly_non_evidence(
+    tmp_path: Path,
+    project_root: Path,
+    purpose: str,
+    evidence_class: str,
+) -> None:
+    project, dataset_id = mini_project(tmp_path, project_root)
+    outcome = ExperimentRunner(project).run_trial(
+        TrialRequest(
+            spec_path=project / "strategy_specs" / "BUY_HOLD_V1.yaml",
+            dataset_id=dataset_id,
+            asset="SPY",
+            split_key="validation_oos",
+            parameters={},
+            friction_bps=5,
+            purpose=purpose,  # type: ignore[arg-type]
+            experiment_id=new_experiment_id(),
+        )
+    )
+    assert outcome.manifest["evidence_class"] == evidence_class
+    assert outcome.manifest["historical_evidence_only"] is False
+
+
+def test_aggregate_report_detects_existing_artifact_tampering(
+    tmp_path: Path, project_root: Path
+) -> None:
+    project, dataset_id = mini_project(tmp_path, project_root)
+    runner = ExperimentRunner(project)
+    experiment_id = new_experiment_id()
+    runner.run_trial(
+        TrialRequest(
+            spec_path=project / "strategy_specs" / "BUY_HOLD_V1.yaml",
+            dataset_id=dataset_id,
+            asset="SPY",
+            split_key="validation_oos",
+            parameters={},
+            friction_bps=5,
+            purpose="primary",
+            experiment_id=experiment_id,
+        )
+    )
+    rows = completed_experiment_rows(project, runner.registry, experiment_id)
+    report = aggregate_report(
+        rows,
+        project / "artifacts" / "reports",
+        experiment_id,
+        runner.registry.events(),
+    )
+    (report / "report.md").write_text("tampered\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="report artifact changed"):
+        aggregate_report(
+            rows,
+            project / "artifacts" / "reports",
+            experiment_id,
+            runner.registry.events(),
+        )
 
 
 def test_failed_trial_is_preserved_with_started_and_failed_events(
     tmp_path: Path, project_root: Path
 ) -> None:
-    project, dataset_id = mini_project(tmp_path, project_root)
+    project, dataset_id = mini_project(tmp_path, project_root, validation_warmup=False)
     runner = ExperimentRunner(project)
     with pytest.raises(ValueError, match="no rows"):
         runner.run_trial(

@@ -69,29 +69,10 @@ class SnapshotStore:
             }
             for symbol, layers in sorted(serialized.items())
         }
-        identity_payload = {
-            "retrieved_at": retrieved_at,
-            "symbols": request.symbols,
-            "requested_start": request.start.isoformat(),
-            "requested_end_exclusive": request.end_exclusive.isoformat(),
-            "checksums": content_checksums,
+        file_paths: dict[str, dict[str, str]] = {
+            symbol: {layer: f"{symbol}/{layer}.csv" for layer in sorted(layers)}
+            for symbol, layers in sorted(serialized.items())
         }
-        stamp = datetime.fromisoformat(retrieved_at).strftime("%Y%m%dT%H%M%S%fZ")
-        dataset_id = (
-            f"ds_{stamp}_{sha256_bytes(canonical_json_bytes(identity_payload))[:12]}"
-        )
-        dataset_dir = self.root / dataset_id
-        dataset_dir.mkdir(parents=True, exist_ok=False)
-
-        file_paths: dict[str, dict[str, str]] = {}
-        for symbol, layers in sorted(serialized.items()):
-            symbol_dir = dataset_dir / symbol
-            symbol_dir.mkdir()
-            file_paths[symbol] = {}
-            for layer, content in sorted(layers.items()):
-                relative_path = f"{symbol}/{layer}.csv"
-                (dataset_dir / relative_path).write_bytes(content)
-                file_paths[symbol][layer] = relative_path
 
         first_sessions = {
             symbol: frames.normalized.index.min().date().isoformat()
@@ -112,7 +93,6 @@ class SnapshotStore:
         dataset_checksum = sha256_bytes(canonical_json_bytes(content_checksums))
         representative = providers[request.symbols[0]]
         manifest: dict[str, Any] = {
-            "dataset_id": dataset_id,
             "dataset_checksum": dataset_checksum,
             "symbols": list(request.symbols),
             "provider": representative.provider,
@@ -170,6 +150,16 @@ class SnapshotStore:
             "forward_fill_applied": False,
             "raw_rows_redistributable": False,
         }
+        stamp = datetime.fromisoformat(retrieved_at).strftime("%Y%m%dT%H%M%S%fZ")
+        dataset_id = f"ds_{stamp}_{sha256_bytes(canonical_json_bytes(manifest))[:12]}"
+        manifest["dataset_id"] = dataset_id
+        manifest["manifest_hash"] = sha256_bytes(canonical_json_bytes(manifest))
+        dataset_dir = self.root / dataset_id
+        dataset_dir.mkdir(parents=True, exist_ok=False)
+        for symbol, layers in sorted(serialized.items()):
+            (dataset_dir / symbol).mkdir()
+            for layer, content in sorted(layers.items()):
+                (dataset_dir / file_paths[symbol][layer]).write_bytes(content)
         (dataset_dir / "manifest.json").write_bytes(canonical_json_bytes(manifest))
         self.validate_dataset(dataset_id)
         return manifest
@@ -231,10 +221,32 @@ class SnapshotStore:
             "missing_session_diagnostics",
             "file_paths",
             "checksums",
+            "manifest_hash",
         }
         missing = sorted(required.difference(manifest))
         if missing:
             raise ValueError(f"dataset manifest missing fields: {missing}")
+        recorded_manifest_hash = str(manifest["manifest_hash"])
+        manifest_payload = {
+            key: value for key, value in manifest.items() if key != "manifest_hash"
+        }
+        actual_manifest_hash = sha256_bytes(canonical_json_bytes(manifest_payload))
+        if actual_manifest_hash != recorded_manifest_hash:
+            raise ValueError("dataset manifest provenance hash mismatch")
+        identity_payload = {
+            key: value
+            for key, value in manifest.items()
+            if key not in {"dataset_id", "manifest_hash"}
+        }
+        identity_stamp = datetime.fromisoformat(manifest["retrieved_at"]).strftime(
+            "%Y%m%dT%H%M%S%fZ"
+        )
+        expected_dataset_id = (
+            f"ds_{identity_stamp}_"
+            f"{sha256_bytes(canonical_json_bytes(identity_payload))[:12]}"
+        )
+        if expected_dataset_id != dataset_id:
+            raise ValueError("dataset identity does not match its canonical provenance")
         if manifest["requested_end_exclusive"] > "2026-01-01":
             raise ValueError("dataset request exceeds the V0.1 date boundary")
 
@@ -334,6 +346,7 @@ class SnapshotStore:
         return {
             "dataset_id": dataset_id,
             "dataset_checksum": actual_dataset_checksum,
+            "manifest_hash": recorded_manifest_hash,
             "valid": True,
             "validated_at": (datetime.now(UTC) + timedelta(0)).isoformat(),
         }

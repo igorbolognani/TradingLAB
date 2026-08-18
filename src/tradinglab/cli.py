@@ -79,6 +79,11 @@ def build_parser() -> argparse.ArgumentParser:
         required=True,
     )
     run.add_argument("--experiment-id", default=None)
+    run.add_argument(
+        "--benchmark-trial-id",
+        default=None,
+        help="matching completed Buy & Hold trial required by non-control strategies",
+    )
 
     battery = subparsers.add_parser(
         "run-battery", help="run the closed cross-asset robustness battery"
@@ -88,6 +93,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--splits", nargs="+", choices=tuple(TEMPORAL_SPLITS), required=True
     )
     battery.add_argument("--confirm-holdout", action="store_true")
+    battery.add_argument(
+        "--resume-holdout",
+        action="store_true",
+        help="resume only missing trials after an interrupted authorized holdout",
+    )
     battery.add_argument(
         "--experiment-id",
         default=None,
@@ -141,6 +151,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 friction_bps=args.friction_bps,
                 purpose=args.purpose,
                 experiment_id=args.experiment_id or new_experiment_id(),
+                benchmark_trial_id=args.benchmark_trial_id,
             )
         )
         print(json.dumps(outcome.manifest, indent=2, sort_keys=True))
@@ -152,6 +163,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             split_keys=tuple(args.splits),
             confirm_holdout=bool(args.confirm_holdout),
             experiment_id=args.experiment_id,
+            resume_holdout=bool(args.resume_holdout),
         )
         print(
             json.dumps(
@@ -171,6 +183,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             rows,
             project_root / "artifacts" / "reports",
             args.experiment_id,
+            registry.events(),
         )
         print(output)
         return 0
@@ -179,9 +192,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(json.dumps(events[-args.limit :], indent=2, sort_keys=True))
         return 0
     if args.command == "reproduce":
-        valid = ExperimentRunner(project_root).reproduce(args.trial_id)
-        print(json.dumps({"trial_id": args.trial_id, "reproduced": valid}))
-        return 0 if valid else 1
+        result = ExperimentRunner(project_root).reproduce(args.trial_id)
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0 if result["reproduced"] else 1
     raise AssertionError("unreachable command")
 
 
