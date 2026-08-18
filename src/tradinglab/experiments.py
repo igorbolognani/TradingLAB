@@ -254,6 +254,14 @@ class ExperimentRunner:
                 }
             )
         )
+        native_final_equity = float(result.engine_equity_curve["Equity"].iloc[-1])
+        canonical_final_equity = float(result.equity_curve["net_equity"].iloc[-1])
+        native_delta = native_final_equity - canonical_final_equity
+        canonical_completed = (
+            int((result.trades["side"] == "sell").sum())
+            if not result.trades.empty
+            else 0
+        )
         paths = {
             "directory": str(artifact_dir.relative_to(self.project_root)),
             **{
@@ -286,6 +294,14 @@ class ExperimentRunner:
             "engine_reference": {
                 "closed_trade_rows": len(result.engine_trades),
                 "equity_rows": len(result.engine_equity_curve),
+                "canonical_completed_lifecycles": canonical_completed,
+                "native_final_equity": native_final_equity,
+                "canonical_final_equity": canonical_final_equity,
+                "final_equity_delta_usd": native_delta,
+                "reconciles_within_one_microdollar": (
+                    len(result.engine_trades) == canonical_completed
+                    and abs(native_delta) <= 0.000001
+                ),
                 "authoritative": False,
             },
             "terminal_position_open": result.terminal_position_open,

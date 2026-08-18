@@ -122,6 +122,14 @@ def test_completed_trial_manifest_artifacts_immutability_and_reproduction(
         "canonical_analytical_hash",
     }
     assert required.issubset(first.manifest)
+    assert {
+        "canonical_completed_lifecycles",
+        "canonical_final_equity",
+        "closed_trade_rows",
+        "final_equity_delta_usd",
+        "native_final_equity",
+        "reconciles_within_one_microdollar",
+    }.issubset(first.manifest["engine_reference"])
     assert runner.registry.holdout_seen() is True
 
 
