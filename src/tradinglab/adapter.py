@@ -23,7 +23,7 @@ ENGINE_VERSION = backtesting.__version__
 class PendingOrder:
     decision: Decision
     decision_session: pd.Timestamp | None
-    eligibility_session: pd.Timestamp
+    eligibility_session: pd.Timestamp | None
     signal_index: int
 
 
@@ -117,7 +117,7 @@ class BacktestingPyAdapter:
         def record_signal(
             decision: Decision,
             decision_session: pd.Timestamp | None,
-            eligibility_session: pd.Timestamp,
+            eligibility_session: pd.Timestamp | None,
             *,
             within_evaluation: bool,
         ) -> PendingOrder:
@@ -130,9 +130,15 @@ class BacktestingPyAdapter:
                     "indicator_value": decision.indicator_value,
                     "within_evaluation": within_evaluation,
                     "fill_session": None,
-                    "fill_status": "pending"
-                    if within_evaluation
-                    else "outside_evaluation",
+                    "fill_status": (
+                        "pending"
+                        if within_evaluation
+                        else (
+                            "outside_evaluation"
+                            if eligibility_session is not None
+                            else "no_next_session"
+                        )
+                    ),
                 }
             )
             return PendingOrder(
@@ -291,6 +297,12 @@ class BacktestingPyAdapter:
                 all_position = _index_location(data.index, session)
                 next_position = all_position + 1
                 if next_position >= len(data.index):
+                    record_signal(
+                        decision,
+                        session,
+                        None,
+                        within_evaluation=False,
+                    )
                     continue
                 eligibility = pd.Timestamp(data.index[next_position])
                 within = offset + 1 < len(evaluation_index)

@@ -188,3 +188,23 @@ def test_engine_options_are_all_explicit_and_safe() -> None:
         "integer_size": True,
         "terminal_handling": "mark_to_final_normalized_close_without_forced_exit",
     }
+
+
+def test_final_close_decision_is_preserved_without_a_future_session(
+    spec_dir: Path,
+) -> None:
+    sessions = regular_sessions(date(2025, 3, 3), date(2025, 3, 5))
+    data = normalized_market_frame(sessions, closes=[10, 10, 12], opens=[10, 10, 10])
+    result = run(
+        spec_dir,
+        "TREND_SMA200_V1",
+        data,
+        {"sma": 2},
+        sessions[1].date(),
+        sessions[-1].date(),
+    )
+    final_signal = result.signals.iloc[-1]
+    assert final_signal["decision_session"] == sessions[-1].date().isoformat()
+    assert final_signal["action"] == "enter"
+    assert final_signal["order_eligibility_session"] is None
+    assert final_signal["fill_status"] == "no_next_session"
