@@ -1,6 +1,6 @@
 """Explicit XNYS regular-session calendar and timezone normalization."""
 
-from datetime import date
+from datetime import date, timedelta
 from zoneinfo import ZoneInfo
 
 import exchange_calendars as xcals
@@ -12,7 +12,15 @@ from tradinglab.constants import EXCHANGE_CALENDAR, TIMEZONE
 def regular_sessions(start: date, end: date) -> pd.DatetimeIndex:
     """Return inclusive XNYS session labels at local New York midnight."""
 
-    calendar = xcals.get_calendar(EXCHANGE_CALENDAR)
+    # The constructor's first/last labels are sessions, while callers may pass
+    # weekend or holiday boundaries. A fixed pad keeps those requested dates
+    # inside the explicitly materialized calendar without changing the query.
+    calendar = xcals.get_calendar(
+        EXCHANGE_CALENDAR,
+        start=start - timedelta(days=7),
+        end=end + timedelta(days=7),
+        side="both",
+    )
     labels = calendar.sessions_in_range(pd.Timestamp(start), pd.Timestamp(end))
     timezone = ZoneInfo(TIMEZONE)
     return pd.DatetimeIndex(

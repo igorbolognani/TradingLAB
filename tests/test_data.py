@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 from conftest import StaticSource, raw_provider_frame
 
+from tradinglab.calendar import regular_sessions
 from tradinglab.data import SnapshotStore, normalize_provider_frame
 from tradinglab.data_source import ProviderFrame, RetrievalRequest
 
@@ -43,6 +44,12 @@ def test_raw_actions_and_coherent_normalization_are_preserved(
     np.testing.assert_allclose(result.normalized["Close"], original["Adj Close"])
     assert "Adj Close" not in result.normalized.columns
     assert result.missing_session_diagnostics["forward_fill_applied"] is False
+
+
+def test_calendar_is_explicitly_materialized_for_2005_warmup() -> None:
+    sessions = regular_sessions(date(2005, 1, 1), date(2005, 1, 10))
+    assert sessions[0].date() == date(2005, 1, 3)
+    assert sessions[-1].date() == date(2005, 1, 10)
 
 
 def test_normalization_is_deterministic(fixture_request: RetrievalRequest) -> None:

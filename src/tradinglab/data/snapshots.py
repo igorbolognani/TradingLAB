@@ -129,6 +129,16 @@ class SnapshotStore:
             },
             "normalized_timezone": TIMEZONE,
             "exchange_calendar": EXCHANGE_CALENDAR,
+            "calendar_configuration": {
+                "name": EXCHANGE_CALENDAR,
+                "start": request.start.isoformat(),
+                "end": request.end_exclusive.isoformat(),
+                "side": "both",
+                "bounds_padding_calendar_days": 7,
+                "session_range_end_semantics": (
+                    "inclusive then filter exclusive request end"
+                ),
+            },
             "exact_query_arguments": representative.exact_query_arguments,
             "raw_schema": {
                 symbol: [str(column) for column in frames.raw.columns]
@@ -213,6 +223,7 @@ class SnapshotStore:
             "source_timezone",
             "normalized_timezone",
             "exchange_calendar",
+            "calendar_configuration",
             "exact_query_arguments",
             "raw_schema",
             "normalized_schema",

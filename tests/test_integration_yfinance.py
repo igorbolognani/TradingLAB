@@ -26,3 +26,5 @@ def test_explicit_yfinance_network_contract() -> None:
     assert result.exact_query_arguments["actions"] is True
     assert result.exact_query_arguments["prepost"] is False
     assert result.exact_query_arguments["repair"] is False
+    assert result.exact_query_arguments["hide_exceptions"] is False
+    assert result.exact_query_arguments["raise_errors"] is None

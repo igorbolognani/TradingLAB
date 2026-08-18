@@ -18,6 +18,11 @@ frontends, servers, databases, and cloud infrastructure.
 - Requested range: `2005-01-01` through exclusive `2026-01-01`.
 - Accepted rows: XNYS sessions only, normalized to `America/New_York`, never
   any 2026 observation.
+- The installed exchange-calendars 4.13.2 XNYS calendar is materialized with
+  explicit requested bounds padded by seven calendar days and `side="both"`;
+  padding admits weekend/holiday boundary labels without changing accepted
+  sessions. This avoids the rolling default window and makes the 2005 warm-up
+  range independently valid.
 - Provider: yfinance/Yahoo for personal educational/research use only.
 - Retrieval sets every material semantic argument explicitly and records the
   installed provider version, signature, exact arguments, source index/timezone,
@@ -29,9 +34,10 @@ The installed yfinance 1.6.0 connector uses these exact `Ticker.history`
 semantics: `period=None`, explicit start and exclusive end, `interval="1d"`,
 `prepost=False`, `actions=True`, `auto_adjust=False`, `back_adjust=False`,
 `repair=False`, `keepna=True`, `rounding=False`, `timeout=30`, and
-`raise_errors=True`. `group_by`, `multi_level_index`, `threads`, and `ignore_tz`
-are recorded as not applicable to the single-ticker API. The provider index
-timezone is preserved in RAW and explicitly normalized to
+`yf.config.debug.hide_exceptions=False`; the deprecated per-call `raise_errors`
+is explicitly recorded as unused. `group_by`, `multi_level_index`, `threads`,
+and `ignore_tz` are recorded as not applicable to the single-ticker API. The
+provider index timezone is preserved in RAW and explicitly normalized to
 `America/New_York` downstream.
 
 Each symbol snapshot has three layers:

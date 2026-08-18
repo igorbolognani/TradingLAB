@@ -64,7 +64,8 @@ class YFinanceSource:
             "keepna": True,
             "rounding": False,
             "timeout": 30,
-            "raise_errors": True,
+            "raise_errors": None,
+            "hide_exceptions": False,
             "group_by": None,
             "multi_level_index": None,
             "threads": None,
@@ -81,6 +82,9 @@ class YFinanceSource:
         if symbol not in request.symbols:
             raise ValueError(f"{symbol} is not declared in this retrieval request")
         arguments = self.query_arguments(request)
+        # yfinance 1.6.0 deprecated the per-call raise_errors argument in favor
+        # of this explicit process configuration.
+        yf.config.debug.hide_exceptions = False
         ticker = yf.Ticker(symbol)
         frame = ticker.history(
             period=None,
@@ -95,7 +99,6 @@ class YFinanceSource:
             keepna=True,
             rounding=False,
             timeout=30,
-            raise_errors=True,
         )
         if not isinstance(frame, pd.DataFrame) or frame.empty:
             raise ValueError(f"provider returned no rows for {symbol}")
