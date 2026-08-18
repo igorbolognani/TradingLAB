@@ -157,3 +157,18 @@ def test_snapshot_corruption_is_detected(
     path.write_text(path.read_text(encoding="utf-8") + "corrupt\n", encoding="utf-8")
     with pytest.raises(ValueError, match="checksum mismatch"):
         store.validate_dataset(manifest["dataset_id"])
+
+
+def test_snapshot_roundtrip_handles_mixed_est_and_edt_offsets(tmp_path: Path) -> None:
+    frame = raw_provider_frame(date(2025, 1, 2), date(2025, 7, 2))
+    request = RetrievalRequest(
+        symbols=("SPY",),
+        start=date(2025, 1, 2),
+        end_exclusive=date(2025, 7, 3),
+    )
+    store = SnapshotStore(tmp_path, source=StaticSource(frame))
+    manifest = store.fetch_dataset(request)
+    loaded = store.load_normalized(str(manifest["dataset_id"]), "SPY")
+    assert str(loaded.index[0].utcoffset()) == "-1 day, 19:00:00"
+    assert str(loaded.index[-1].utcoffset()) == "-1 day, 20:00:00"
+    assert store.validate_dataset(str(manifest["dataset_id"]))["valid"] is True

@@ -195,12 +195,8 @@ class SnapshotStore:
         expected_hash = manifest["checksums"][symbol]["normalized"]
         if sha256_file(path) != expected_hash:
             raise ValueError(f"normalized snapshot checksum mismatch: {path}")
-        frame = pd.read_csv(path, parse_dates=["Session"], index_col="Session")
-        parsed = pd.DatetimeIndex(frame.index)
-        if parsed.tz is None:
-            parsed = parsed.tz_localize(ZoneInfo(TIMEZONE))
-        else:
-            parsed = parsed.tz_convert(ZoneInfo(TIMEZONE))
+        frame = pd.read_csv(path, index_col="Session")
+        parsed = pd.to_datetime(frame.index, utc=True).tz_convert(ZoneInfo(TIMEZONE))
         frame.index = pd.DatetimeIndex(parsed, name="Session")
         return frame
 
