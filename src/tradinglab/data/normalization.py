@@ -107,7 +107,8 @@ def normalize_provider_frame(
 
     expected = regular_sessions(requested_start, requested_end_exclusive)
     accepted = set(validation_view.index)
-    unexpected = [session for session in accepted if session not in set(expected)]
+    expected_set = set(expected)
+    unexpected = [session for session in accepted if session not in expected_set]
     if unexpected:
         raise ValueError(
             f"provider returned non-XNYS or out-of-range sessions: {unexpected}"
