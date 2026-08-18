@@ -5,9 +5,6 @@ import json
 from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
-from typing import Any
-
-import pandas as pd
 
 from tradinglab.constants import ASSETS, TEMPORAL_SPLITS
 from tradinglab.data import SnapshotStore
@@ -15,6 +12,7 @@ from tradinglab.data_source import RetrievalRequest
 from tradinglab.experiments import (
     ExperimentRunner,
     TrialRequest,
+    completed_experiment_rows,
     new_experiment_id,
     run_battery,
 )
@@ -90,6 +88,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--splits", nargs="+", choices=tuple(TEMPORAL_SPLITS), required=True
     )
     battery.add_argument("--confirm-holdout", action="store_true")
+    battery.add_argument(
+        "--experiment-id",
+        default=None,
+        help="explicit existing experiment identity for staged continuation",
+    )
 
     report = subparsers.add_parser("report", help="generate a new aggregate report")
     report.add_argument("--experiment-id", required=True)
@@ -148,6 +151,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             dataset_id=args.dataset_id,
             split_keys=tuple(args.splits),
             confirm_holdout=bool(args.confirm_holdout),
+            experiment_id=args.experiment_id,
         )
         print(
             json.dumps(
@@ -162,27 +166,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         )
         return 0
     if args.command == "report":
-        completed = registry.completed_for_experiment(args.experiment_id)
-        rows: list[dict[str, Any]] = []
-        for event in completed:
-            manifest_path = project_root / event["artifact_paths"]["manifest"]
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            rows.append(
-                {
-                    "trial_id": manifest["trial_id"],
-                    "artifact_dir": manifest["artifact_paths"]["directory"],
-                    "asset": manifest["asset"],
-                    "temporal_split": manifest["temporal_split"],
-                    "strategy_id": manifest["strategy_id"],
-                    "purpose": manifest["purpose"],
-                    "parameters": json.dumps(manifest["parameters"], sort_keys=True),
-                    "friction_bps": manifest["friction_bps"],
-                    **manifest["metrics"],
-                    **manifest["benchmark_deltas"],
-                }
-            )
+        rows = completed_experiment_rows(project_root, registry, args.experiment_id)
         output = aggregate_report(
-            pd.DataFrame(rows),
+            rows,
             project_root / "artifacts" / "reports",
             args.experiment_id,
         )

@@ -438,6 +438,7 @@ def run_battery(
     dataset_id: str,
     split_keys: tuple[str, ...],
     confirm_holdout: bool,
+    experiment_id: str | None = None,
 ) -> tuple[str, list[TrialOutcome], Path]:
     """Execute the predeclared sequence, keeping matching benchmarks visible."""
 
@@ -452,7 +453,7 @@ def run_battery(
             raise ValueError(
                 "Project Holdout is already marked seen; do not rerun informally"
             )
-    experiment_id = new_experiment_id()
+    experiment_id = experiment_id or new_experiment_id()
     outcomes: list[TrialOutcome] = []
     configurations = battery_configurations()
     benchmarks: dict[tuple[str, str, int], dict[str, Any]] = {}
@@ -501,29 +502,37 @@ def run_battery(
                 outcomes.append(outcome)
                 if strategy_id == "BUY_HOLD_V1":
                     benchmarks[benchmark_key] = outcome.metrics
-    rows = pd.DataFrame(
-        [
-            {
-                "trial_id": outcome.trial_id,
-                "artifact_dir": str(outcome.artifact_dir.relative_to(project_root)),
-                "asset": outcome.manifest["asset"],
-                "temporal_split": outcome.manifest["temporal_split"],
-                "strategy_id": outcome.manifest["strategy_id"],
-                "purpose": outcome.manifest["purpose"],
-                "parameters": json.dumps(
-                    outcome.manifest["parameters"], sort_keys=True
-                ),
-                "friction_bps": outcome.manifest["friction_bps"],
-                **outcome.metrics,
-                **outcome.manifest.get("benchmark_deltas", {}),
-            }
-            for outcome in outcomes
-        ]
-    )
+    rows = completed_experiment_rows(project_root, runner.registry, experiment_id)
     report_dir = aggregate_report(
         rows, project_root / "artifacts" / "reports", experiment_id
     )
     return experiment_id, outcomes, report_dir
+
+
+def completed_experiment_rows(
+    project_root: Path, registry: TrialRegistry, experiment_id: str
+) -> pd.DataFrame:
+    """Load all immutable completed trial manifests for one experiment."""
+
+    rows: list[dict[str, Any]] = []
+    for event in registry.completed_for_experiment(experiment_id):
+        manifest_path = project_root / event["artifact_paths"]["manifest"]
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        rows.append(
+            {
+                "trial_id": manifest["trial_id"],
+                "artifact_dir": manifest["artifact_paths"]["directory"],
+                "asset": manifest["asset"],
+                "temporal_split": manifest["temporal_split"],
+                "strategy_id": manifest["strategy_id"],
+                "purpose": manifest["purpose"],
+                "parameters": json.dumps(manifest["parameters"], sort_keys=True),
+                "friction_bps": manifest["friction_bps"],
+                **manifest["metrics"],
+                **manifest["benchmark_deltas"],
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 def trial_metrics_from_path(path: Path) -> dict[str, Any]:

@@ -19,6 +19,21 @@ def test_cli_exposes_only_declared_local_research_operations() -> None:
     assert "submit" not in help_text.lower()
 
 
+def test_battery_accepts_explicit_experiment_continuation() -> None:
+    args = build_parser().parse_args(
+        [
+            "run-battery",
+            "--dataset-id",
+            "dataset",
+            "--splits",
+            "development",
+            "--experiment-id",
+            "experiment",
+        ]
+    )
+    assert args.experiment_id == "experiment"
+
+
 def test_no_broker_dependency_client_credentials_or_submission_path(
     project_root: Path,
 ) -> None:
