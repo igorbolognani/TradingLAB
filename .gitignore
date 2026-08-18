@@ -1,0 +1,22 @@
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Yahoo market rows and generated immutable snapshots stay local.
+data/snapshots/
+
+# Registered trial outputs are local research evidence, not distributable data.
+artifacts/trials/
+artifacts/reports/
+registry/events.jsonl
+
+# Local plot/browser noise.
+*.html
+.DS_Store
+

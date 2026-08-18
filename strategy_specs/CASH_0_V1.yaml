@@ -1,0 +1,25 @@
+strategy_id: CASH_0_V1
+strategy_version: "1"
+strategy_family: cash_control
+hypothesis: Cash control should produce no trades, costs, interest, or equity change.
+applicable_assets: [SPY, IWM, EFA, TLT, GLD]
+timeframe: 1d_regular_session
+price_basis: yahoo_total_return_adjusted_ohlc_v1
+indicator_definitions:
+  - {name: none, source: none, lookback: 0, min_periods: 0, standard_deviation_ddof: null}
+warmup_bars: 0
+decision_time: after_confirmed_close_t
+execution_time: next_valid_regular_session_open
+entry_rule: never
+exit_rule: never
+position_sizing: {method: none, fractional_shares: false}
+risk_constraints: {long_only: true, shorting: false, leverage: 1, pyramiding: false, cash_interest: 0}
+parameters: {sma: null, lookback: null, entry_z: null, exit_z: null, max_hold: null}
+parameter_policy: fixed_control
+modeled_execution_friction:
+  concept: modeled_all_in_execution_friction
+  base_bps_per_side: 5
+  sensitivity_bps_per_side: [0, 5, 10, 25]
+benchmark: none
+expected_failure_modes: []
+
