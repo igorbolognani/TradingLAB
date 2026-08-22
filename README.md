@@ -120,6 +120,11 @@ running, request a Development or Validation battery. Project Holdout,
 broker execution, paper trading, and live trading remain blocked. The GitHub
 handoff is documented in [`docs/GITHUB_MIGRATION.md`](docs/GITHUB_MIGRATION.md).
 
+The private Sites surface can also call this local API when both are used on
+the same computer and `uv run tradinglab-dashboard` is running. CORS is limited
+to the local development origins and the private TradingLAB Sites origin; the
+API still binds only to `127.0.0.1` and is not an internet endpoint.
+
 ### Candles e qualidade de dados
 
 Na tela **Market data**, o servidor local pode devolver candles OHLCV reais do

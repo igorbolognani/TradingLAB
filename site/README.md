@@ -24,6 +24,12 @@ uv run tradinglab-dashboard
 O site hospedado é uma camada de leitura privada; o motor de pesquisa e seus
 artefatos continuam no checkout local.
 
+Quando o site privado hospedado for aberto no mesmo computador do checkout,
+inicie `uv run tradinglab-dashboard` localmente para que o navegador possa
+consultar os candles validados e as ações de Development/Validation. O serviço
+local aceita apenas as origens localhost e o domínio privado do Sites; ele não
+se torna um endpoint público de dados ou de ordens.
+
 ## Market data local
 
 Na navegação **Market data**, o painel consulta o snapshot validado pelo

@@ -30,6 +30,13 @@ SYMBOL_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,24}$")
 ALLOWED_SPLITS = frozenset({"development", "validation_oos"})
 MAX_REQUEST_BYTES = 64 * 1024
 MAX_CANDLE_ROWS = 1_000
+ALLOWED_BROWSER_ORIGINS = frozenset(
+    {
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://tradinglab-research-lab.igorbolognani768385.chatgpt.site",
+    }
+)
 
 
 def dataset_ids(project_root: Path) -> tuple[str, ...]:
@@ -201,7 +208,10 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
-        self.send_header("Access-Control-Allow-Origin", "http://localhost:3000")
+        origin = self.headers.get("Origin")
+        if origin in ALLOWED_BROWSER_ORIGINS:
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
