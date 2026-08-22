@@ -16,7 +16,27 @@ artifacts/trials/
 artifacts/reports/
 registry/events.jsonl
 
+# V0.2 LEAN materialized input and comparison output remain local.
+v0_2_lean/lean_data/
+v0_2_lean/output*/
+v0_2_lean/**/__pycache__/
+
+# V0.3-V0.5 local inputs and generated evidence remain out of Git.
+v0_3_paper/output/
+v0_4_tradingview/output/
+v0_5_forex/input/
+v0_5_forex/output/
+v0_6_portfolio/output/
+
+# ChatGPT Sites source and local build noise. Keep the editable app source.
+site/node_modules/
+site/.next/
+site/.vinext/
+site/.wrangler/
+site/dist/
+site/.git/
+site/npm-debug.log*
+
 # Local plot/browser noise.
 *.html
 .DS_Store
-

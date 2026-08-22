@@ -80,3 +80,42 @@ kept local by `.gitignore`. Detailed contracts and completion evidence live in
 
 Historical performance is research evidence only and does not prove future
 profitability, paper-trading readiness, or live-trading suitability.
+
+## Roadmap status after V0.2
+
+The independent V0.2 LEAN reproduction is complete for the frozen primary
+battery: 60/60 configurations passed with no signal or fill-contract
+divergence. The next roadmap phases are implemented as safe research bridges
+in this same repository:
+
+- [`docs/V0_3_V0_5_PLAN.md`](docs/V0_3_V0_5_PLAN.md) is the canonical roadmap and
+  decision handoff.
+- `v0_3_paper/` contains paper-readiness manifests, a deterministic forward
+  simulator, and reconciliation contracts; it has no broker transport.
+- `v0_4_tradingview/` contains a Pine v6 confirmed-bar observer and a local
+  alert parser; TradingView is not canonical.
+- `v0_5_forex/` contains an offline UTC EURUSD daily-bar contract, replay, and an
+  indicator-only MT5 observer; it is separate from the XNYS ETF registry.
+- `v0_6_portfolio/` contains a shared-cash portfolio reference replay with
+  equal-weight and inverse-volatility baselines; it does not optimize or trade.
+
+An actual Alpaca account, MT5 terminal, external alert delivery, or order
+submission remains a human-gated future integration and is intentionally absent
+from the repository.
+
+## Research Control Room
+
+The `site/` directory contains the interface source for the private Sites
+surface. It is intentionally empty until a real local report is imported; it
+does not ship Yahoo rows or synthetic performance values. For local use:
+
+```bash
+cd site && npm install && npm run dev
+# in another terminal, from the repository root:
+uv run tradinglab-dashboard
+```
+
+The browser can load an `all_trials.csv`/JSON export and, when the local API is
+running, request a Development or Validation battery. Project Holdout,
+broker execution, paper trading, and live trading remain blocked. The GitHub
+handoff is documented in [`docs/GITHUB_MIGRATION.md`](docs/GITHUB_MIGRATION.md).

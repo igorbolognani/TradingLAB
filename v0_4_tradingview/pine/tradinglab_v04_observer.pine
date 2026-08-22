@@ -1,0 +1,55 @@
+//@version=6
+// TradingLAB V0.4 observer only. There is deliberately no strategy() call,
+// broker API, order operation, quantity, or execution state in this script.
+indicator("TradingLAB V0.4 Observer", overlay = true, max_labels_count = 500)
+
+selected_strategy = input.string(
+    "TREND_SMA200_V1",
+    "Observer family",
+    options = ["TREND_SMA200_V1", "MEANREV_Z20_V1"]
+)
+sma_length = input.int(200, "Trend SMA length", minval = 2)
+z_length = input.int(20, "Mean-reversion lookback", minval = 2)
+entry_z = input.float(-2.0, "Mean-reversion entry z", step = 0.1)
+max_hold = input.int(10, "Mean-reversion max hold", minval = 1)
+
+sma_value = ta.sma(close, sma_length)
+mean_value = ta.sma(close, z_length)
+stdev_value = ta.stdev(close, z_length)
+z_value = stdev_value == 0 ? na : (close - mean_value) / stdev_value
+
+trend_long = not na(sma_value) and close > sma_value
+trend_enter = barstate.isconfirmed and trend_long and not trend_long[1]
+trend_exit = barstate.isconfirmed and not trend_long and trend_long[1]
+
+var bool meanrev_in_position = false
+var int meanrev_hold = 0
+meanrev_enter_condition = not meanrev_in_position and not na(z_value) and z_value <= entry_z
+meanrev_exit_condition = meanrev_in_position and (z_value >= 0 or meanrev_hold >= max_hold)
+bool meanrev_enter = false
+bool meanrev_exit = false
+if barstate.isconfirmed and selected_strategy == "MEANREV_Z20_V1"
+    if meanrev_enter_condition
+        meanrev_in_position := true
+        meanrev_hold := 1
+        meanrev_enter := true
+    else if meanrev_exit_condition
+        meanrev_in_position := false
+        meanrev_hold := 0
+        meanrev_exit := true
+    else if meanrev_in_position
+        meanrev_hold += 1
+
+observer_enter = selected_strategy == "TREND_SMA200_V1" ? trend_enter : meanrev_enter
+observer_exit = selected_strategy == "TREND_SMA200_V1" ? trend_exit : meanrev_exit
+observer_value = selected_strategy == "TREND_SMA200_V1" ? sma_value : z_value
+safe_value = na(observer_value) ? 0.0 : observer_value
+
+plot(sma_value, "SMA observer", color = color.orange)
+plotshape(observer_enter, "Confirmed entry observation", shape.triangleup, location.belowbar, color.green, size = size.tiny)
+plotshape(observer_exit, "Confirmed exit observation", shape.triangledown, location.abovebar, color.red, size = size.tiny)
+
+if barstate.isconfirmed and (observer_enter or observer_exit)
+    action = observer_enter ? "enter" : "exit"
+    payload = "{\"contract\":\"tradinglab/v0.4-observer/v1\",\"schema_version\":1,\"symbol\":\"" + syminfo.ticker + "\",\"timeframe\":\"" + timeframe.period + "\",\"session\":\"" + str.format_time(time, "yyyy-MM-dd", "America/New_York") + "\",\"strategy_id\":\"" + selected_strategy + "\",\"strategy_version\":\"V1\",\"action\":\"" + action + "\",\"indicator_value\":" + str.tostring(safe_value) + ",\"confirmed\":true,\"source_revision\":\"pine-v6-observer-1\"}"
+    alert(payload, alert.freq_once_per_bar_close)

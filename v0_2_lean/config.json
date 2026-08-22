@@ -1,0 +1,11 @@
+{
+    "algorithm-type-name": "TradingLabV02Algorithm",
+    "algorithm-language": "Python",
+    "algorithm-location": "algorithms/tradinglab_v02.py",
+    "data-folder": "lean_data",
+    "debugging": false,
+    "job-user-id": 0,
+    "api-handler": "",
+    "live-mode": false,
+    "local-id": 770367816
+}

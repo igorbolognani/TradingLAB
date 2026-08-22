@@ -1,0 +1,11 @@
+{
+    "algorithm-type-name": "TradingLabV02Algorithm",
+    "algorithm-language": "Python",
+    "algorithm-location": "algorithms/tradinglab_v02.py",
+    "data-folder": "lean_data",
+    "organization-id": "local",
+    "live-mode": false,
+    "file-database-last-update": "08/22/2026 14:26:21",
+    "data-provider": "QuantConnect.Lean.Engine.DataFeeds.DefaultDataProvider",
+    "id": "Local"
+}
