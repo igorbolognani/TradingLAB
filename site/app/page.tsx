@@ -3,7 +3,7 @@
 import type { ChangeEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-type ViewId = "overview" | "experiments" | "portfolio" | "provenance";
+type ViewId = "overview" | "market" | "experiments" | "portfolio" | "provenance";
 
 type DashboardRow = {
   strategy: string;
@@ -17,6 +17,79 @@ type DashboardRow = {
 };
 
 type RowInput = Record<string, unknown>;
+
+type Candle = {
+  event_time: string;
+  session: string;
+  open: number | null;
+  high: number | null;
+  low: number | null;
+  close: number | null;
+  volume: number | null;
+  sma_20?: number | null;
+  sma_50?: number | null;
+  sma_200?: number | null;
+  atr_14?: number | null;
+};
+
+type CandlePayload = {
+  symbol: string;
+  timeframe: string;
+  candles: Candle[];
+  returned_row_count: number;
+  available_row_count: number;
+  source: {
+    provider: string;
+    provider_version: string;
+    retrieved_at: string;
+    dataset_id: string;
+    dataset_checksum: string;
+    manifest_hash: string;
+    exchange_calendar: string;
+    source_timezone: string;
+    normalized_timezone: string;
+    price_basis_id: string;
+    normalization_version: string;
+    corporate_actions_preserved: boolean;
+  };
+  freshness: {
+    mode: string;
+    last_event_time: string | null;
+    last_session: string;
+    bar_is_complete: boolean;
+    realtime_active: boolean;
+    latency_ms: number | null;
+    message: string;
+  };
+  quality: {
+    status: "pass" | "warning" | "fail";
+    row_count: number;
+    duplicate_timestamp_count: number;
+    out_of_order_count: number;
+    missing_value_count: number;
+    invalid_ohlc_count: number;
+    missing_session_count: number;
+    errors: string[];
+    warnings: string[];
+  };
+  calculated: {
+    latest: {
+      open: number | null;
+      high: number | null;
+      low: number | null;
+      close: number | null;
+      volume: number | null;
+    } | null;
+    change: number | null;
+    change_pct: number | null;
+    session_range_pct: number | null;
+    atr_14: number | null;
+    sma_20: number | null;
+    sma_50: number | null;
+    sma_200: number | null;
+    volume_vs_20_session_median: number | null;
+  };
+};
 
 const ASSETS = ["SPY", "IWM", "EFA", "TLT", "GLD"] as const;
 const STRATEGIES = [
@@ -167,6 +240,10 @@ function formatPercent(value: number, digits = 1): string {
   return `${(value * 100).toFixed(digits)}%`;
 }
 
+function formatOptionalPercent(value: number | null, digits = 1): string {
+  return value == null ? "—" : formatPercent(value, digits);
+}
+
 function formatSignedPercent(value: number, digits = 1): string {
   const prefix = value > 0 ? "+" : "";
   return `${prefix}${formatPercent(value, digits)}`;
@@ -203,6 +280,123 @@ function EmptyState({ message }: { message: string }) {
   return <div className="empty-state">{message}</div>;
 }
 
+function formatPrice(value: number | null | undefined): string {
+  return value == null ? "—" : value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+}
+
+function CandleChart({ candles }: { candles: Candle[] }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !candles.length) return;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    function draw() {
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.max(320, rect.width);
+      const height = 360;
+      const pixelRatio = window.devicePixelRatio || 1;
+      canvas.width = width * pixelRatio;
+      canvas.height = height * pixelRatio;
+      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      context.clearRect(0, 0, width, height);
+
+      const valid = candles.filter((candle) => candle.high != null && candle.low != null);
+      if (!valid.length) return;
+      const prices = valid.flatMap((candle) => [candle.high ?? 0, candle.low ?? 0]);
+      const maximum = Math.max(...prices);
+      const minimum = Math.min(...prices);
+      const range = Math.max(maximum - minimum, 0.000001);
+      const left = 52;
+      const right = 14;
+      const top = 18;
+      const priceBottom = 270;
+      const volumeTop = 292;
+      const volumeBottom = 334;
+      const chartWidth = width - left - right;
+      const slot = chartWidth / Math.max(valid.length, 1);
+      const bodyWidth = Math.max(2, Math.min(13, slot * 0.62));
+      const y = (price: number) => top + ((maximum - price) / range) * (priceBottom - top);
+      const volumes = valid.map((candle) => candle.volume ?? 0);
+      const maximumVolume = Math.max(...volumes, 1);
+
+      context.font = "10px ui-monospace, monospace";
+      context.lineWidth = 1;
+      for (let index = 0; index <= 4; index += 1) {
+        const gridY = top + ((priceBottom - top) * index) / 4;
+        const label = maximum - (range * index) / 4;
+        context.strokeStyle = "#e5eaf2";
+        context.beginPath();
+        context.moveTo(left, gridY);
+        context.lineTo(width - right, gridY);
+        context.stroke();
+        context.fillStyle = "#8190a5";
+        context.fillText(formatPrice(label), 5, gridY + 3);
+      }
+      context.fillStyle = "#8190a5";
+      context.fillText("volume", left, volumeBottom + 18);
+
+      valid.forEach((candle, index) => {
+        const center = left + slot * index + slot / 2;
+        const open = candle.open ?? candle.close ?? 0;
+        const close = candle.close ?? open;
+        const high = candle.high ?? Math.max(open, close);
+        const low = candle.low ?? Math.min(open, close);
+        const rising = close >= open;
+        const color = rising ? "#19a974" : "#e36d5c";
+        context.strokeStyle = color;
+        context.fillStyle = color;
+        context.beginPath();
+        context.moveTo(center, y(high));
+        context.lineTo(center, y(low));
+        context.stroke();
+        const bodyTop = Math.min(y(open), y(close));
+        const bodyHeight = Math.max(1, Math.abs(y(open) - y(close)));
+        context.fillRect(center - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight);
+        const volumeHeight = ((candle.volume ?? 0) / maximumVolume) * (volumeBottom - volumeTop);
+        context.globalAlpha = 0.42;
+        context.fillRect(center - bodyWidth / 2, volumeBottom - volumeHeight, bodyWidth, volumeHeight);
+        context.globalAlpha = 1;
+      });
+      function drawIndicator(key: "sma_20" | "sma_50" | "sma_200", color: string) {
+        context.strokeStyle = color;
+        context.lineWidth = 1.4;
+        context.beginPath();
+        let started = false;
+        valid.forEach((candle, index) => {
+          const indicator = candle[key];
+          if (indicator == null) {
+            started = false;
+            return;
+          }
+          const center = left + slot * index + slot / 2;
+          if (started) context.lineTo(center, y(indicator));
+          else context.moveTo(center, y(indicator));
+          started = true;
+        });
+        context.stroke();
+      }
+      drawIndicator("sma_20", "#3267f3");
+      drawIndicator("sma_50", "#7a5cf0");
+      drawIndicator("sma_200", "#e68a3e");
+      context.fillStyle = "#8190a5";
+      const labelIndexes = [0, Math.floor((valid.length - 1) / 2), valid.length - 1];
+      labelIndexes.forEach((index) => {
+        const center = left + slot * index + slot / 2;
+        context.fillText(valid[index].session, Math.max(left, center - 30), height - 8);
+      });
+    }
+
+    draw();
+    window.addEventListener("resize", draw);
+    return () => window.removeEventListener("resize", draw);
+  }, [candles]);
+
+  return <canvas ref={canvasRef} className="candle-canvas" aria-label="Candles OHLC e volume" />;
+}
+
 function AppMark() {
   return (
     <div className="app-mark" aria-hidden="true">
@@ -224,6 +418,11 @@ export default function Home() {
   const [localApiAvailable, setLocalApiAvailable] = useState(false);
   const [localDatasetId, setLocalDatasetId] = useState("");
   const [isRunning, setIsRunning] = useState(false);
+  const [candleSymbol, setCandleSymbol] = useState("SPY");
+  const [candleLimit, setCandleLimit] = useState("240");
+  const [candlePayload, setCandlePayload] = useState<CandlePayload | null>(null);
+  const [isLoadingCandles, setIsLoadingCandles] = useState(false);
+  const [candleNotice, setCandleNotice] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -231,12 +430,12 @@ export default function Home() {
     fetch("http://127.0.0.1:8787/api/health")
       .then(async (response) => {
         if (!response.ok) throw new Error("local API unavailable");
-        return (await response.json()) as { dataset_ids?: string[] };
+        return (await response.json()) as { dataset_ids?: string[]; recommended_dataset_id?: string | null };
       })
       .then((payload) => {
         if (!active) return;
         setLocalApiAvailable(true);
-        setLocalDatasetId(payload.dataset_ids?.[0] ?? "");
+        setLocalDatasetId(payload.recommended_dataset_id ?? payload.dataset_ids?.at(-1) ?? "");
       })
       .catch(() => {
         if (active) setLocalApiAvailable(false);
@@ -352,6 +551,32 @@ export default function Home() {
       );
     } finally {
       setIsRunning(false);
+    }
+  }
+
+  async function loadCandles() {
+    if (!localApiAvailable || !localDatasetId) {
+      setCandleNotice("Inicie `uv run tradinglab-dashboard` para carregar o snapshot real local.");
+      return;
+    }
+    setIsLoadingCandles(true);
+    setCandleNotice("Validando manifesto, checksum e candles…");
+    try {
+      const query = new URLSearchParams({
+        dataset_id: localDatasetId,
+        symbol: candleSymbol,
+        limit: candleLimit,
+      });
+      const response = await fetch(`http://127.0.0.1:8787/api/candles?${query.toString()}`);
+      const payload = (await response.json()) as CandlePayload & { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "snapshot recusado");
+      setCandlePayload(payload);
+      setCandleNotice(`${payload.returned_row_count.toLocaleString("en-US")} candles reais carregados; sem feed realtime ativo.`);
+    } catch (error) {
+      setCandlePayload(null);
+      setCandleNotice(`Não foi possível carregar os candles: ${error instanceof Error ? error.message : "erro desconhecido"}.`);
+    } finally {
+      setIsLoadingCandles(false);
     }
   }
 
@@ -537,7 +762,76 @@ export default function Home() {
     );
   }
 
+  function renderMarket() {
+    const market = candlePayload;
+    const calculated = market?.calculated;
+    const latest = calculated?.latest;
+    return (
+      <section className="page-stack">
+        <div className="page-heading">
+          <div><div className="eyebrow">Market data / local snapshot</div><h1>Candles completos, com origem visível.</h1></div>
+          <span className={`api-badge ${localApiAvailable ? "api-online" : "api-offline"}`}><span /> {localApiAvailable ? "Snapshot local disponível" : "API local offline"}</span>
+        </div>
+        <div className="market-controls panel">
+          <div className="panel-kicker">Data controls</div>
+          <h2>Escolha o ativo e o recorte</h2>
+          <p className="panel-copy">O painel consulta somente os dados reais já congelados no seu computador. Não há preço gerado, preenchimento automático ou conexão com broker.</p>
+          <div className="field-grid market-field-grid">
+            <label htmlFor="candle-symbol">Ativo<select id="candle-symbol" value={candleSymbol} onChange={(event) => setCandleSymbol(event.target.value)}>{ASSETS.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+            <label htmlFor="candle-limit">Candles recentes<select id="candle-limit" value={candleLimit} onChange={(event) => setCandleLimit(event.target.value)}><option value="120">120</option><option value="240">240</option><option value="500">500</option><option value="1000">1000</option></select></label>
+            <div className="market-action"><button className="button button-primary" onClick={() => void loadCandles()} disabled={isLoadingCandles}>{isLoadingCandles ? "Validando…" : "Carregar candles"}</button><span>{localDatasetId || "nenhum dataset detectado"}</span></div>
+          </div>
+          {candleNotice ? <div className="notice" role="status">{candleNotice}</div> : null}
+        </div>
+
+        {market ? (
+          <>
+            <div className="source-strip">
+              <span className="source-pill">{market.source.provider} {market.source.provider_version}</span>
+              <span>coletado em {new Date(market.source.retrieved_at).toLocaleString("pt-BR")}</span>
+              <span>última sessão {market.freshness.last_session}</span>
+              <span className="quality-pill">qualidade: {market.quality.status}</span>
+              <span className="historical-pill">histórico · não realtime</span>
+            </div>
+            <section className="metric-grid market-metric-grid" aria-label="Métricas calculadas do candle">
+              <MetricCard label="Último close" value={formatPrice(latest?.close)} detail={`${market.symbol} · basis normalizado`} tone="blue" />
+              <MetricCard label="Variação da sessão" value={formatOptionalPercent(calculated?.change_pct ?? null)} detail={`Δ ${formatPrice(calculated?.change ?? null)}`} tone={(calculated?.change_pct ?? 0) >= 0 ? "green" : "orange"} />
+              <MetricCard label="ATR 14" value={formatPrice(calculated?.atr_14)} detail="amplitude média recente" tone="violet" />
+              <MetricCard label="Volume relativo" value={calculated?.volume_vs_20_session_median == null ? "—" : `${formatNumber(calculated.volume_vs_20_session_median)}x`} detail="contra mediana de 20 sessões" tone="orange" />
+            </section>
+            <div className="market-grid">
+              <article className="panel candle-panel">
+                <div className="panel-heading"><div><div className="panel-kicker">OHLCV / {market.timeframe}</div><h2>{market.symbol} — candle chart</h2></div><span className="source-pill">{market.returned_row_count} de {market.available_row_count} barras</span></div>
+                <div className="chart-legend"><span><i className="legend-up" /> alta</span><span><i className="legend-down" /> baixa</span><span><i className="legend-sma20" /> SMA20</span><span><i className="legend-sma50" /> SMA50</span><span><i className="legend-sma200" /> SMA200</span><span>corpo + sombra + volume</span></div>
+                <CandleChart candles={market.candles} />
+                <div className="chart-footnote">Os horários do gráfico são eventos em UTC convertidos a partir da sessão regular. A barra final é marcada como encerrada pelo manifesto histórico.</div>
+              </article>
+              <article className="panel source-panel">
+                <div className="panel-kicker">Source & integrity</div><h2>Como este valor chegou aqui</h2>
+                <div className="source-detail-list">
+                  <div><span>PROVIDER</span><strong>{market.source.provider}</strong></div>
+                  <div><span>VERSION</span><strong>{market.source.provider_version}</strong></div>
+                  <div><span>TIMEZONE</span><strong>{market.source.normalized_timezone}</strong></div>
+                  <div><span>CALENDAR</span><strong>{market.source.exchange_calendar}</strong></div>
+                  <div><span>PRICE BASIS</span><strong>{market.source.price_basis_id}</strong></div>
+                  <div><span>ACTIONS</span><strong>{market.source.corporate_actions_preserved ? "preservadas" : "não informado"}</strong></div>
+                </div>
+                <div className="hash-box"><span>DATASET</span><code>{market.source.dataset_id}</code><span>MANIFEST SHA-256</span><code>{market.source.manifest_hash}</code></div>
+              </article>
+            </div>
+            <article className="panel calculated-panel">
+              <div className="panel-heading"><div><div className="panel-kicker">Derived values</div><h2>Indicadores calculados no servidor local</h2></div><span className="small-muted">não são recomendações</span></div>
+              <div className="calculated-grid"><div><span>SMA 20</span><strong>{formatPrice(calculated?.sma_20)}</strong></div><div><span>SMA 50</span><strong>{formatPrice(calculated?.sma_50)}</strong></div><div><span>SMA 200</span><strong>{formatPrice(calculated?.sma_200)}</strong></div><div><span>Range da sessão</span><strong>{formatOptionalPercent(calculated?.session_range_pct ?? null)}</strong></div></div>
+              <div className="table-wrap candle-table-wrap"><table><thead><tr><th>Sessão</th><th>Open</th><th>High</th><th>Low</th><th>Close</th><th>Volume</th></tr></thead><tbody>{market.candles.slice(-12).reverse().map((candle) => <tr key={candle.event_time}><td>{candle.session}</td><td>{formatPrice(candle.open)}</td><td>{formatPrice(candle.high)}</td><td>{formatPrice(candle.low)}</td><td className={(candle.close ?? 0) >= (candle.open ?? 0) ? "positive" : "negative"}>{formatPrice(candle.close)}</td><td>{candle.volume == null ? "—" : Math.round(candle.volume).toLocaleString("en-US")}</td></tr>)}</tbody></table></div>
+            </article>
+          </>
+        ) : <EmptyState message="Carregue um snapshot local para ver candles completos, qualidade e indicadores calculados." />}
+      </section>
+    );
+  }
+
   function renderPortfolio() {
+    const equalWeight = 100 / ASSETS.length;
     return (
       <section className="page-stack">
         <div className="page-heading"><div><div className="eyebrow">V0.6 / Portfolio reference</div><h1>Um portfólio pequeno, auditável e sem otimizador.</h1></div><span className="coming-badge">REFERENCE READY</span></div>
@@ -545,9 +839,9 @@ export default function Home() {
           <article className="panel portfolio-main">
             <div className="panel-heading"><div><div className="panel-kicker">Allocation baseline</div><h2>Composição de referência</h2></div><span className="source-pill">V0.6 local</span></div>
             <div className="allocation-list">
-              {ASSETS.map((item, index) => <div className="allocation-row" key={item}><div className="allocation-symbol"><span className={`allocation-color allocation-${index}`} />{item}</div><div className="allocation-bar"><span style={{ width: `${[32, 24, 18, 14, 12][index]}%` }} /></div><strong>{[32, 24, 18, 14, 12][index]}%</strong></div>)}
+              {ASSETS.map((item, index) => <div className="allocation-row" key={item}><div className="allocation-symbol"><span className={`allocation-color allocation-${index}`} />{item}</div><div className="allocation-bar"><span style={{ width: `${equalWeight}%` }} /></div><strong>{equalWeight.toFixed(1)}%</strong></div>)}
             </div>
-            <div className="portfolio-callout"><strong>Contrato:</strong> decisões no fechamento, rebalanceamento no próximo open, caixa compartilhado, shares inteiras, venda antes da compra.</div>
+            <div className="portfolio-callout"><strong>Regra declarada:</strong> equal weight entre os cinco ETFs quando todos estiverem elegíveis. Isto é uma referência de alocação, não uma posição real nem uma recomendação.</div>
           </article>
           <article className="panel portfolio-side">
             <div className="panel-kicker">Available methods</div><h2>Baselines declaradas</h2>
@@ -574,17 +868,17 @@ export default function Home() {
     );
   }
 
-  const viewContent = activeView === "overview" ? renderOverview() : activeView === "experiments" ? renderExperiments() : activeView === "portfolio" ? renderPortfolio() : renderProvenance();
+  const viewContent = activeView === "overview" ? renderOverview() : activeView === "market" ? renderMarket() : activeView === "experiments" ? renderExperiments() : activeView === "portfolio" ? renderPortfolio() : renderProvenance();
 
   return (
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand"><AppMark /><div><strong>TradingLAB</strong><span>Research workspace</span></div></div>
-        <div className="sidebar-section"><div className="sidebar-label">Workspace</div><nav>{([ ["overview", "Overview", "◈"], ["experiments", "Experiments", "⌘"], ["portfolio", "Portfolio", "◒"], ["provenance", "Data & provenance", "⌬"] ] as [ViewId, string, string][]).map(([id, label, icon]) => <button className={activeView === id ? "nav-item active" : "nav-item"} onClick={() => setActiveView(id)} key={id}><span aria-hidden="true">{icon}</span>{label}{id === "experiments" ? <em>run</em> : null}</button>)}</nav></div>
+        <div className="sidebar-section"><div className="sidebar-label">Workspace</div><nav>{([ ["overview", "Overview", "◈"], ["market", "Market data", "▥"], ["experiments", "Experiments", "⌘"], ["portfolio", "Portfolio", "◒"], ["provenance", "Data & provenance", "⌬"] ] as [ViewId, string, string][]).map(([id, label, icon]) => <button className={activeView === id ? "nav-item active" : "nav-item"} onClick={() => setActiveView(id)} key={id}><span aria-hidden="true">{icon}</span>{label}{id === "experiments" ? <em>run</em> : null}</button>)}</nav></div>
         <div className="sidebar-section sidebar-bottom"><div className="sidebar-label">Safety mode</div><div className="safety-status"><span className="status-dot" /><div><strong>Research only</strong><small>External execution disabled</small></div></div><div className="version-box"><span>Current build</span><strong>V0.6 reference</strong><small>local + Sites UI</small></div></div>
       </aside>
       <div className="main-column">
-        <header className="topbar"><div className="mobile-brand"><AppMark /><strong>TradingLAB</strong></div><div className="breadcrumb"><span>TradingLAB</span><b>/</b><strong>{activeView === "overview" ? "Overview" : activeView === "experiments" ? "Experiments" : activeView === "portfolio" ? "Portfolio" : "Data & provenance"}</strong></div><div className="topbar-right"><span className="sync-label"><span className="status-dot" /> Evidence synced locally</span><button className="avatar" aria-label="Research workspace">IG</button></div></header>
+        <header className="topbar"><div className="mobile-brand"><AppMark /><strong>TradingLAB</strong></div><div className="breadcrumb"><span>TradingLAB</span><b>/</b><strong>{activeView === "overview" ? "Overview" : activeView === "market" ? "Market data" : activeView === "experiments" ? "Experiments" : activeView === "portfolio" ? "Portfolio" : "Data & provenance"}</strong></div><div className="topbar-right"><span className="sync-label"><span className="status-dot" /> {localApiAvailable ? "Snapshot local conectado" : "Evidence local"}</span><button className="avatar" aria-label="Research workspace">IG</button></div></header>
         <div className="content"><div className="filter-strip"><div className="filter-title"><span className="filter-icon">≡</span><strong>View filters</strong><span>{filteredRows.length} rows</span></div><div className="filter-control"><span className="filter-control-label">Strategy</span><select aria-label="Strategy" value={strategy} onChange={(event) => setStrategy(event.target.value)}><option value="ALL">All strategies</option>{STRATEGIES.map((item) => <option key={item} value={item}>{labelForStrategy(item)}</option>)}</select></div><div className="filter-control"><span className="filter-control-label">Asset</span><select aria-label="Asset" value={asset} onChange={(event) => setAsset(event.target.value)}><option value="ALL">All assets</option>{ASSETS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><div className="filter-control"><span className="filter-control-label">Split</span><select aria-label="Split" value={split} onChange={(event) => setSplit(event.target.value)}><option value="ALL">All splits</option>{SPLITS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><button className="reset-button" onClick={resetData}>Limpar dados</button></div>{viewContent}</div>
         <footer className="footer"><span>TradingLAB · Quant / Systematic Research Lab</span><span>V0.1 frozen · V0.2 reproduced · V0.6 reference</span></footer>
       </div>

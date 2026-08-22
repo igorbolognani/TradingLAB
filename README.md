@@ -119,3 +119,21 @@ The browser can load an `all_trials.csv`/JSON export and, when the local API is
 running, request a Development or Validation battery. Project Holdout,
 broker execution, paper trading, and live trading remain blocked. The GitHub
 handoff is documented in [`docs/GITHUB_MIGRATION.md`](docs/GITHUB_MIGRATION.md).
+
+### Candles e qualidade de dados
+
+Na tela **Market data**, o servidor local pode devolver candles OHLCV reais do
+snapshot validado, junto com provedor, versão, horários, basis de preço,
+checksum, ações corporativas, indicadores SMA/ATR e diagnóstico de qualidade:
+
+```text
+GET /api/health
+GET /api/datasets
+GET /api/candles?dataset_id=<id>&symbol=SPY&limit=240
+```
+
+O endpoint identifica explicitamente o modo como `historical_snapshot` e
+`realtime_active=false`. Ele não promete baixa latência enquanto o projeto não
+tiver um fornecedor licenciado com feed ao vivo. A matriz de fornecedores,
+licenciamento, timestamps, alternativas BYOD e gates de segurança está em
+[`docs/DATA_PROVIDER_RESEARCH.md`](docs/DATA_PROVIDER_RESEARCH.md).

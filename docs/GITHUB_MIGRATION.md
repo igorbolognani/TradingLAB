@@ -1,8 +1,13 @@
 # GitHub and Sites migration boundary
 
-This repository is ready to be placed in a GitHub repository, but the remote
-identity and visibility have not been chosen. No remote, token, commit, or push
-is created by this document.
+The migration is complete for the public research repository. The current
+remote is owned by `igorbolognani` and the repository is public:
+
+`https://github.com/igorbolognani/TradingLAB`
+
+The public repository contains code, tests and documentation only. It does not
+contain the local Yahoo snapshot, generated trial artifacts, credentials or a
+broker path.
 
 ## What belongs in GitHub
 
@@ -29,14 +34,14 @@ snapshot; it binds to `127.0.0.1`, exposes no shell, and rejects Project Holdout
 
 ## Safe migration sequence
 
-1. Confirm the intended GitHub owner, repository name, and private/public
-   visibility.
-2. Review `git status`, `git diff --stat`, and `git diff -- .gitignore`.
-3. Confirm no ignored data or secret has been force-added.
-4. Run the Python and site checks from the root and `site/` directories.
-5. Create a reviewable local commit only after the exact file set is approved.
-6. Add the exact GitHub remote and push `main` only with explicit approval.
-7. Configure GitHub Actions and Sites from the committed source, never from a
+The original migration checklist was completed as follows:
+
+1. The owner, name and public visibility were confirmed.
+2. Ignored data and secret paths were audited before the first push.
+3. Python and Sites checks were added to GitHub Actions.
+4. `main` was pushed to the remote with the local research code.
+5. New changes must repeat the same audit before each push.
+6. Sites source must be pushed from the exact committed state, never from a
    directory containing snapshots or credentials.
 
 ## What is required for real market data in the deployed site
@@ -45,7 +50,9 @@ The current yfinance source is not the distribution contract. A deployed data
 surface requires a provider whose terms explicitly permit redistribution or
 server-side display, a refresh schedule, a data checksum/provenance manifest,
 and a decision about whether only derived aggregates or full OHLC rows are
-licensed. This is a separate data-provider decision, not a frontend change.
+licensed. The current provider comparison and recommended selection process are
+in [`docs/DATA_PROVIDER_RESEARCH.md`](DATA_PROVIDER_RESEARCH.md). This is a
+separate data-provider decision, not a frontend change.
 
 ## What is required for paper/live execution
 

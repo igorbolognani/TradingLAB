@@ -23,3 +23,21 @@ uv run tradinglab-dashboard
 
 O site hospedado é uma camada de leitura privada; o motor de pesquisa e seus
 artefatos continuam no checkout local.
+
+## Market data local
+
+Na navegação **Market data**, o painel consulta o snapshot validado pelo
+servidor local e mostra candles completos, volume, SMA20/SMA50/SMA200, ATR14,
+qualidade, origem, versão, horários e hashes. A resposta informa
+`realtime_active=false` porque o snapshot histórico não é um feed ao vivo.
+
+Endpoints usados pelo navegador:
+
+```text
+GET /api/health
+GET /api/datasets
+GET /api/candles?dataset_id=<id>&symbol=SPY&limit=240
+```
+
+Não há números demonstrativos no estado inicial. Sem um snapshot real e
+validado, a tela permanece vazia.

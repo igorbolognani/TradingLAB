@@ -29,6 +29,7 @@ test("server-renders the TradingLAB control room", async () => {
   assert.match(html, /Research control room/i);
   assert.match(html, /CAGR mediano/i);
   assert.match(html, /Project Holdout/i);
+  assert.match(html, /Market data/i);
   assert.match(html, /Research only/i);
   assert.doesNotMatch(html, /Your site is taking shape|codex-preview|react-loading-skeleton/i);
 });
@@ -40,6 +41,9 @@ test("keeps site assets inside the app source", async () => {
   ]);
   assert.match(page, /all_trials\.csv/);
   assert.match(page, /run-battery/);
+  assert.match(page, /api\/candles/);
+  assert.match(page, /realtime_active/);
+  assert.match(page, /Candles completos/);
   assert.match(page, /Project Holdout/);
   assert.match(layout, /lang="pt-BR"/);
   await assert.rejects(access(new URL("public/_sites-preview", templateRoot)));
