@@ -36,6 +36,8 @@ site/.wrangler/
 site/dist/
 site/.git/
 site/npm-debug.log*
+!site/build/
+!site/build/**
 
 # Local plot/browser noise.
 *.html
