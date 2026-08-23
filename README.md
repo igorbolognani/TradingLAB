@@ -8,10 +8,13 @@ trading, custody, deposits, payments and automatic strategy promotion are not
 implemented.
 
 The public web surface is a presentation landing page. After authentication,
-the application separates the online workspace from offline research. The
-owner-only Paper bridge keeps credentials on the server and defaults to
-read-only monitoring; new Paper orders require explicit safety flags and a
-kill-switch release.
+the application opens a compact trading workspace with separate **Workspace**,
+**Research** and **Manage** navigation. Owner-only market, portfolio and
+administration tools remain hidden from invited users; **Data & trust** gives
+all authenticated users a small, readable view of source and quality. The
+Paper bridge keeps credentials on the server and defaults to read-only
+monitoring; new Paper orders require explicit safety flags and a kill-switch
+release.
 
 The current integration boundary is documented in
 [`docs/ALPACA_PAPER_BRIDGE.md`](docs/ALPACA_PAPER_BRIDGE.md). Direct
@@ -159,13 +162,15 @@ The complete V1.0 contract and later gates are in
 
 The `site/` directory contains two deliberately separate surfaces: a public
 landing page for presentation and an authenticated application for use. The
-landing page has no application sidebar and explains the method, workflow and
-metrics. After login, the application opens the dashboard and groups its tools
-into **Online workspace** (dashboard, private market data and portfolio replay)
-and **Offline research** (experiments and data/provenance). The owner gate hides
-Market data and Portfolio from other accounts. It is intentionally empty until
-a real local report is imported; it does not ship Yahoo rows or synthetic
-performance values. For local use:
+landing page has no application sidebar and explains the product through a
+short visual flow, interactive preview and collapsed help topics. After login,
+the application opens the dashboard and groups its tools into **Workspace**
+(dashboard, Paper, private market data and portfolio replay), **Research**
+(owner experiments plus the public-facing Data & trust summary) and **Manage**
+(profile, settings, help and owner-only Admin/use tips). The owner gate hides
+Market data, Portfolio, Experiments and Admin from other accounts. It is
+intentionally empty until a real local report is imported; it does not ship
+Yahoo rows or synthetic performance values. For local use:
 
 ```bash
 cd site && npm install && npm run dev
@@ -174,9 +179,13 @@ uv run tradinglab-dashboard
 ```
 
 The browser can load an `all_trials.csv`/JSON export and, when the local API is
-running, request a Development or Validation battery. Project Holdout,
-broker execution, paper trading, and live trading remain blocked. The GitHub
-handoff is documented in [`docs/GITHUB_MIGRATION.md`](docs/GITHUB_MIGRATION.md).
+running, request a Development or Validation battery. Project Holdout and the
+research-to-order path remain blocked. The separately gated Paper workspace
+can monitor an owner or OAuth-authorized Paper account, while new orders stay
+behind explicit safety gates and Live remains absent. The GitHub handoff is
+documented in [`docs/GITHUB_MIGRATION.md`](docs/GITHUB_MIGRATION.md).
+The current screen hierarchy and interaction rules are documented in
+[`docs/UI_INFORMATION_ARCHITECTURE.md`](docs/UI_INFORMATION_ARCHITECTURE.md).
 
 The Sites surface can also call this local API when both are used on the same
 computer and `uv run tradinglab-dashboard` is running. CORS is limited to the

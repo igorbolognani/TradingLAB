@@ -87,11 +87,11 @@ para não confundir apresentação com operação:
 - **Landing pública:** primeira tela compartilhável, sem barra lateral e sem
   dados operacionais. Explica o que o laboratório faz e como interpretar seus
   resultados.
-- **Aplicativo autenticado:** dashboard e ferramentas de uso. A navegação do
-  proprietário é dividida em **Online workspace** (monitoramento de mercado e
-  replay de portfólio) e **Offline research** (experimentos, dados e
-  proveniência). O status `LIVE DESATIVADO` fica visível porque replay não é
-  execução real.
+- **Aplicativo autenticado:** dashboard e ferramentas de uso. A navegação é
+  dividida em **Workspace** (dashboard, Paper, Market data e Portfolio),
+  **Research** (Experiments e o resumo Data & trust) e **Manage** (Profile,
+  Settings, Help e Admin para o proprietário). O status `LIVE DESATIVADO` fica
+  visível porque replay e Paper controlado não são execução live.
 
 Isso permite que outra pessoa conheça o produto sem receber o snapshot Yahoo ou
 os controles privados, enquanto o proprietário trabalha no mesmo endereço com

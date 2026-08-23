@@ -29,9 +29,10 @@ promovida automaticamente e nenhum botão de research envia ordem.
 - Landing page pública compartilhável, separada visualmente do aplicativo e
   sem barra lateral operacional; ela apresenta método, fluxo, métricas e
   limites.
-- Aplicativo autenticado com dashboard inicial e navegação em duas áreas:
-  **Online workspace** para dashboard, Market data e Portfolio replay; e
-  **Offline research** para Experiments e Data & provenance.
+- Aplicativo autenticado com dashboard inicial e navegação compacta em três
+  áreas: **Workspace** para dashboard, Paper, Market data e Portfolio replay;
+  **Research** para Experiments (owner) e Data & trust; e **Manage** para
+  Profile, Settings, Help e Admin/use tips (owner).
 - Login nativo do ChatGPT e owner gate; Market data e Portfolio replay ficam
   disponíveis somente para a identidade do proprietário.
 - Candles OHLCV completos, volume e indicadores SMA/ATR calculados
@@ -49,6 +50,9 @@ promovida automaticamente e nenhum botão de research envia ordem.
   timestamps de evento/recepção.
 - Workspace de candles interativo com crosshair/inspeção OHLCV, zoom, navegação,
   indicadores alternáveis e anotações locais de nível, linha e marcador.
+- Interface responsiva com landing pública sem barra lateral, menu operacional
+  móvel, ajuda contextual por pequenos `?`, disclosures para conteúdo técnico e
+  preferências locais de densidade, tooltips e persistência de marcações.
 - `realtime_active=false` e `latency_ms=null` quando a fonte não fornece um
   feed ao vivo ou relógios suficientes.
 - GitHub público sem snapshots, artefatos, credenciais ou caminho de broker.
@@ -157,10 +161,12 @@ Não está ativado na V1.0. A implementação posterior deverá acrescentar:
 
 ### Paper
 
-O próximo passo seguro é observar sinais aprovados em um simulador/reconciliador
-por um período previamente definido. Uma futura conta paper exige adapter
-separado, segredo fora do Git, idempotência, fills parciais, rejeições, rate
-limits, kill switch e comparação entre intenção e execução.
+A V1.0 já possui um Paper workspace separado para monitoramento do proprietário
+e para contas OAuth autorizadas. Ele consulta conta, cotações, candles,
+posições e ordens; novos envios continuam atrás de allowlist, limites,
+idempotência, reconciliação, rate limits e kill switch. Isso é uma camada de
+teste controlado, não uma promoção de estratégia nem prova de prontidão para
+capital real.
 
 ### Live
 

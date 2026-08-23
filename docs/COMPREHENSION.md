@@ -41,12 +41,12 @@ around holdout governance.
   Resolução: implementar o adaptador live e um replay de eventos com relógios
   observáveis.
 
-- **OAuth multiusuário e persistência:** a ponte inicial usava um cookie
-  criptografado e era somente uma fundação de leitura. Agora o fluxo possui
-  tabelas D1 para conexões, intenções e eventos, mas a aprovação do Alpaca
-  Connect e um piloto com usuários convidados ainda são estados externos não
-  comprovados pelo código. Para resolver, aprovar o aplicativo, conectar uma
-  conta de teste e observar reconciliação Paper sem habilitar Live.
+- **OAuth multiusuário e persistência:** o fluxo possui tabelas D1 para
+  conexões, intenções e eventos, mas a aprovação pública do Alpaca Connect e
+  um piloto amplo com usuários convidados continuam sendo estados externos.
+  A interface já separa o Paper workspace do Admin, mostra o motivo de cada
+  bloqueio e mantém Live desabilitado; a próxima comprovação é conectar uma
+  conta de teste convidada e observar a reconciliação Paper sem habilitar Live.
 
 ## Resolved knowledge gaps
 

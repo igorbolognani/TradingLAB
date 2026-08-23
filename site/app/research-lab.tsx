@@ -4,8 +4,9 @@ import type { ChangeEvent, PointerEvent as ReactPointerEvent, WheelEvent as Reac
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PaperControl from "./paper-control";
+import { HelpDot, InfoDisclosure } from "./ui";
 
-type ViewId = "landing" | "overview" | "paper" | "market" | "experiments" | "portfolio" | "provenance";
+type ViewId = "landing" | "overview" | "paper" | "market" | "experiments" | "portfolio" | "provenance" | "profile" | "settings" | "help" | "admin";
 
 type ResearchLabProps = {
   isOwner: boolean;
@@ -605,7 +606,7 @@ function formatPrice(value: number | null | undefined): string {
   return value == null ? "—" : value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 }
 
-function CandleChart({ candles, symbol }: { candles: Candle[]; symbol: string }) {
+function CandleChart({ candles, symbol, persistDrawings = true }: { candles: Candle[]; symbol: string; persistDrawings?: boolean }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dragRef = useRef<{ startX: number; start: number; end: number } | null>(null);
   const drawingIdRef = useRef<number | null>(null);
@@ -648,6 +649,11 @@ function CandleChart({ candles, symbol }: { candles: Candle[]; symbol: string })
     const loadDrawings = window.setTimeout(() => {
       if (cancelled) return;
       try {
+        if (!persistDrawings) {
+          setDrawings([]);
+          drawingsLoadedRef.current = true;
+          return;
+        }
         const stored = window.localStorage.getItem(`tradinglab-chart-drawings:${symbol}`);
         const parsed = stored ? JSON.parse(stored) : [];
         setDrawings(Array.isArray(parsed) ? (parsed as ChartDrawing[]) : []);
@@ -660,16 +666,17 @@ function CandleChart({ candles, symbol }: { candles: Candle[]; symbol: string })
       cancelled = true;
       window.clearTimeout(loadDrawings);
     };
-  }, [symbol]);
+  }, [persistDrawings, symbol]);
 
   useEffect(() => {
     if (!drawingsLoadedRef.current) return;
+    if (!persistDrawings) return;
     try {
       window.localStorage.setItem(`tradinglab-chart-drawings:${symbol}`, JSON.stringify(drawings));
     } catch {
       // Drawing persistence is a convenience; chart interaction must still work when storage is unavailable.
     }
-  }, [drawings, symbol]);
+  }, [drawings, persistDrawings, symbol]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1038,6 +1045,10 @@ function AppMark() {
 
 export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, initialView }: ResearchLabProps) {
   const [activeView, setActiveView] = useState<ViewId>(initialView);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [tooltipsEnabled, setTooltipsEnabled] = useState(true);
+  const [compactMode, setCompactMode] = useState(false);
+  const [persistDrawings, setPersistDrawings] = useState(true);
   const [strategy, setStrategy] = useState("ALL");
   const [asset, setAsset] = useState("ALL");
   const [split, setSplit] = useState("ALL");
@@ -1065,6 +1076,36 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
   const candleFileInput = useRef<HTMLInputElement>(null);
   const portfolioFileInput = useRef<HTMLInputElement>(null);
   const autoLoadedDatasetRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const loadSettings = window.setTimeout(() => {
+      try {
+        const stored = JSON.parse(window.localStorage.getItem("tradinglab-ui-settings") ?? "{}");
+        if (typeof stored.tooltipsEnabled === "boolean") setTooltipsEnabled(stored.tooltipsEnabled);
+        if (typeof stored.compactMode === "boolean") setCompactMode(stored.compactMode);
+        if (typeof stored.persistDrawings === "boolean") setPersistDrawings(stored.persistDrawings);
+      } catch {
+        // UI preferences are optional; the workspace remains usable when storage is unavailable.
+      }
+    }, 0);
+    return () => window.clearTimeout(loadSettings);
+  }, []);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        "tradinglab-ui-settings",
+        JSON.stringify({ tooltipsEnabled, compactMode, persistDrawings }),
+      );
+    } catch {
+      // UI preferences are best-effort only.
+    }
+  }, [compactMode, persistDrawings, tooltipsEnabled]);
+
+  const navigate = useCallback((view: ViewId) => {
+    setActiveView(view);
+    setSidebarOpen(false);
+  }, []);
 
   useEffect(() => {
     if (!isOwner) return;
@@ -1409,7 +1450,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
               <div><span>ATR 14</span><strong>{formatPrice(calculated?.atr_14)}</strong></div>
               <div><span>ÚLTIMA SESSÃO</span><strong>{market.freshness.last_session}</strong></div>
             </div>
-            <CandleChart candles={market.candles} symbol={market.symbol} />
+            <CandleChart candles={market.candles} symbol={market.symbol} persistDrawings={persistDrawings} />
           </>
         ) : (
           <div className="chart-empty-state">
@@ -1427,72 +1468,50 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
       <section className="landing page-stack">
         <section className="landing-hero">
           <div className="landing-hero-copy">
-            <div className="eyebrow">Trading workspace / V1.0</div>
-            <h1>Veja o mercado. Teste a ideia. Decida com mais clareza.</h1>
-            <p className="hero-copy">
-              Uma interface para acompanhar ativos, comparar cenários, simular
-              portfólios e entender o que cada número significa — sem transformar
-              uma simulação em promessa.
-            </p>
+            <div className="eyebrow">Trading workspace · V1.0</div>
+            <h1>O mercado em um espaço de trabalho mais claro.</h1>
+            <p className="hero-copy">Gráficos, métricas e simulações em uma interface profissional para observar, testar e acompanhar decisões com capital virtual.</p>
             <div className="hero-actions">
-              {viewer ? (
-                <button className="button button-primary" onClick={() => setActiveView("overview")}>
-                  Abrir o aplicativo <span aria-hidden="true">→</span>
-                </button>
-              ) : (
-                <a className="button button-primary" href={signInHref}>
-                  Entrar para explorar o aplicativo <span aria-hidden="true">→</span>
-                </a>
-              )}
-              {isOwner ? (
-                <button className="button button-quiet" onClick={() => setActiveView("portfolio")}>
-                  Abrir meu workspace privado
-                </button>
-              ) : viewer ? (
-                <span className="landing-signed-in">Conectado como {viewer.displayName}</span>
-              ) : (
-                <a className="button button-quiet" href={signInHref}>Entrar com ChatGPT</a>
-              )}
+              {viewer ? <button className="button button-primary" onClick={() => navigate("overview")}>Abrir aplicativo <span aria-hidden="true">→</span></button> : <a className="button button-primary" href={signInHref}>Entrar com ChatGPT <span aria-hidden="true">→</span></a>}
             </div>
             <div className="landing-trust" aria-label="Princípios do produto">
-              <span><i>✓</i> gráficos e métricas claros</span>
-              <span><i>✓</i> simulação sem dinheiro real</span>
-              <span><i>✓</i> sem ordens externas</span>
+              <span><i>✓</i> dados com origem</span>
+              <span><i>✓</i> capital virtual</span>
+              <span><i>✓</i> controle por usuário</span>
             </div>
           </div>
           <div className="landing-signal-card" aria-label="Fluxo de uso das ferramentas TradingLAB">
-            <div className="landing-card-top"><span className="panel-kicker">Trading workflow</span><span className="live-badge"><b /> simulação segura</span></div>
-            <div className="landing-signal-title">Do mercado à decisão</div>
+            <div className="landing-card-top"><span className="panel-kicker">Workspace preview</span><span className="live-badge"><b /> paper / virtual</span></div>
+            <div className="landing-signal-title">Observe antes de agir</div>
             <div className="product-flow">
-              <div><span>01</span><strong>Mercado</strong><small>candles, variação, volume e tendências</small></div>
-              <div><span>02</span><strong>Estratégia</strong><small>ativo, regra e período selecionados</small></div>
-              <div><span>03</span><strong>Simulação</strong><small>replay com custos e dinheiro virtual</small></div>
-              <div><span>04</span><strong>Acompanhamento</strong><small>patrimônio, risco e resultado</small></div>
+              <div><span>01</span><strong>Mercado</strong><small>candles, volume e indicadores</small></div>
+              <div><span>02</span><strong>Cenário</strong><small>ativo, período e regra explícita</small></div>
+              <div><span>03</span><strong>Replay</strong><small>patrimônio, custos e risco</small></div>
             </div>
-            <div className="landing-card-footer"><span>TOOLS V1.0</span><strong>controle antes da ação</strong></div>
+            <div className="landing-card-footer"><span>TRADINGLAB</span><strong>clareza antes da execução</strong></div>
           </div>
         </section>
 
         {renderMarketPreview({ publicMode: true })}
 
         <section id="public-features" className="landing-section">
-          <div className="section-intro"><div className="eyebrow">A plataforma</div><h2>Ferramentas para operar melhor informado.</h2><p>A camada pública mostra como a experiência funciona. Depois do login, cada pessoa vê as ferramentas compatíveis com sua permissão — e o proprietário pode conectar seu ambiente local para trabalhar com dados reais.</p></div>
+          <div className="section-intro"><div className="eyebrow">O produto</div><h2>As ferramentas essenciais, no mesmo espaço.</h2><p>O aplicativo adapta o workspace ao acesso da pessoa: mercado, gráficos, simulações, conta Paper autorizada e controles privados quando disponíveis.</p></div>
           <div className="landing-feature-grid">
-            <article className="landing-feature"><span className="feature-number">01</span><h3>Gráficos completos</h3><p>Veja candles, volume e indicadores em contexto para entender o movimento do ativo, não apenas um preço isolado.</p></article>
-            <article className="landing-feature"><span className="feature-number">02</span><h3>Simulação de portfólio</h3><p>Compare alocações, patrimônio, custos, exposição e risco com capital virtual antes de considerar qualquer próximo passo.</p></article>
-            <article className="landing-feature"><span className="feature-number">03</span><h3>Métricas que explicam</h3><p>CAGR, Sharpe, drawdown, trades e fricção aparecem com contexto para evitar conclusões baseadas em um único número.</p></article>
-            <article className="landing-feature"><span className="feature-number">04</span><h3>Controle e privacidade</h3><p>O site público não expõe dados locais ou credenciais. A camada privada permanece protegida e sem envio de ordens.</p></article>
+            <article className="landing-feature"><span className="feature-number">01</span><h3>Gráfico interativo</h3><p>Candles, zoom, cursor, linhas, níveis, marcações, volume e médias móveis.</p></article>
+            <article className="landing-feature"><span className="feature-number">02</span><h3>Simulação</h3><p>Compare patrimônio, exposição, custos e risco usando dinheiro virtual.</p></article>
+            <article className="landing-feature"><span className="feature-number">03</span><h3>Dados explicáveis</h3><p>Fonte, horário, completude, latência e qualidade acompanham os valores.</p></article>
+            <article className="landing-feature"><span className="feature-number">04</span><h3>Workspace seguro</h3><p>Permissões separadas, credenciais protegidas e ações externas sob controles explícitos.</p></article>
           </div>
         </section>
 
         <section id="public-how-to-use" className="landing-section landing-split-section">
-          <div className="landing-panel-copy"><div className="eyebrow">Como usar</div><h2>Tudo começa no painel certo.</h2><div className="landing-step-list"><div><span>01</span><p><strong>Entrar.</strong> Conheça a experiência pública e faça login para abrir o aplicativo.</p></div><div><span>02</span><p><strong>Selecionar.</strong> Escolha ativo, estratégia, período e fonte de dados.</p></div><div><span>03</span><p><strong>Simular.</strong> Execute um cenário com capital virtual, custos e regras explícitas.</p></div><div><span>04</span><p><strong>Acompanhar.</strong> Visualize candles, patrimônio, risco e origem dos números.</p></div></div></div>
-          <div className="metric-explainer"><div className="panel-kicker">Métricas sem complicação</div><h3>O painel mostra o que importa.</h3><div className="metric-definition"><strong>CAGR</strong><span>ritmo anualizado do resultado; ajuda a comparar períodos diferentes.</span></div><div className="metric-definition"><strong>Sharpe</strong><span>retorno comparado à oscilação; mostra a relação entre ganho e risco.</span></div><div className="metric-definition"><strong>Drawdown</strong><span>a maior queda do patrimônio; mostra o desconforto no caminho.</span></div><div className="metric-definition"><strong>Fricção</strong><span>custos estimados por negociação; revela quanto o cenário depende de custos baixos.</span></div></div>
+          <div className="landing-panel-copy"><div className="eyebrow">Fluxo de uso</div><h2>Um caminho simples para começar.</h2><div className="landing-step-list"><div><span>01</span><p><strong>Entrar.</strong> Abra o aplicativo com sua conta.</p></div><div><span>02</span><p><strong>Escolher.</strong> Selecione ativo, período e ferramenta.</p></div><div><span>03</span><p><strong>Explorar.</strong> Leia o gráfico e teste um cenário.</p></div><div><span>04</span><p><strong>Acompanhar.</strong> Confira resultado, risco e origem.</p></div></div></div>
+          <div className="landing-info-stack"><InfoDisclosure title="O que significam as métricas?"><p><strong>CAGR</strong> é o ritmo anualizado; <strong>Sharpe</strong> relaciona retorno e oscilação; <strong>drawdown</strong> é a maior queda do patrimônio; <strong>fricção</strong> representa custos estimados.</p></InfoDisclosure><InfoDisclosure title="Como os dados são tratados?"><p>O painel identifica provedor, horário, timezone, completude, latência e qualidade. Quando não existe dado válido, a interface mostra vazio em vez de inventar preço.</p></InfoDisclosure><InfoDisclosure title="O que não fica ativo automaticamente?"><p>Uma simulação não é recomendação. Ações externas, live trading e acesso a dinheiro real dependem de permissões e controles separados.</p></InfoDisclosure></div>
         </section>
 
         <section className="landing-access">
-          <div><div className="eyebrow">Acesso</div><h2>{isOwner ? "Seu workspace privado está pronto." : "Comece pela experiência pública."}</h2><p>{isOwner ? "Sua conta reconhecida pelo ChatGPT pode abrir candles, snapshot, replay de portfólio e dados locais. Visitantes continuam vendo apenas a apresentação pública." : "Conheça as ferramentas, entenda as métricas e entre no aplicativo quando quiser. Dados locais e controles privados ficam reservados ao proprietário."}</p></div>
-          {isOwner ? <button className="button button-primary" onClick={() => setActiveView("overview")}>Entrar no workspace →</button> : viewer ? <span className="access-note">Sua conta tem acesso à camada pública.</span> : <a className="button button-primary" href={signInHref}>Entrar com ChatGPT →</a>}
+          <div><div className="eyebrow">Pronto para explorar?</div><h2>{viewer ? "Abra seu workspace." : "Entre no TradingLAB."}</h2><p>{viewer ? `Conectado como ${viewer.displayName}. As ferramentas disponíveis aparecem após a entrada.` : "Faça login para abrir o aplicativo e continuar com seu próprio espaço de trabalho."}</p></div>
+          {viewer ? <button className="button button-primary" onClick={() => navigate("overview")}>Abrir aplicativo →</button> : <a className="button button-primary" href={signInHref}>Entrar com ChatGPT →</a>}
         </section>
       </section>
     );
@@ -1503,27 +1522,19 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
       <>
         <section className="hero-grid">
           <div>
-            <div className="eyebrow">Home / dashboard · V1.0</div>
-            <h1>Um painel de trabalho para acompanhar decisões e evidências.</h1>
-            <p className="hero-copy">
-              Use o espaço online para consultar o mercado e acompanhar replays
-              simulados. Use o espaço offline para importar resultados, executar
-              experiências locais e conferir a origem de cada número.
-            </p>
+            <div className="eyebrow">Workspace / dashboard · V1.0</div>
+            <h1>Veja o que está acontecendo, em um só lugar.</h1>
+            <p className="hero-copy">Escolha um ativo, leia o gráfico e abra Paper ou replay quando quiser. Os dados, limites e permissões ficam visíveis sem ocupar o centro da tela.</p>
             <div className="hero-actions">
-              <button className="button button-primary" onClick={() => setActiveView("experiments")}>
-                Abrir experimento <span aria-hidden="true">→</span>
-              </button>
-              <button className="button button-quiet" onClick={() => setActiveView("provenance")}>
-                Ver proveniência
-              </button>
+              <button className="button button-primary" onClick={() => navigate(isOwner ? "market" : "paper")}>{isOwner ? "Abrir Market data" : "Abrir Paper workspace"} <span aria-hidden="true">→</span></button>
+              <button className="button button-quiet" onClick={() => navigate("provenance")}>Ver origem dos dados</button>
             </div>
           </div>
           <div className="hero-note">
             <div className="note-icon">⌁</div>
             <div>
-              <strong>Estado do laboratório</strong>
-              <p>V0.1 congelada · V0.2 reproduzida · V0.6 portfólio operacional</p>
+              <strong>Workspace pronto</strong>
+              <p>{isOwner ? "Dados locais e Paper monitor disponíveis quando conectados." : "Conecte sua conta para acompanhar seu próprio Paper."}</p>
             </div>
             <span className="status-dot" aria-label="ativo" />
           </div>
@@ -1531,25 +1542,19 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
 
         <section className="workspace-mode-grid" aria-label="Áreas do aplicativo">
           <article className="panel workspace-mode-card workspace-online-card">
-            <div className="panel-kicker">Online workspace</div>
-            <h2>{isOwner ? "Mercado e portfólio no mesmo painel" : "Visão pública do workspace"}</h2>
+            <div className="panel-kicker">Trading workspace</div>
+            <h2>{isOwner ? "Mercado e portfólio no mesmo painel" : "Sua conta e seu mercado"}</h2>
             <p className="panel-copy">
               {isOwner
-                ? "Abra candles completos do snapshot local e rode um replay de portfólio com dinheiro simulado. A execução externa continua desligada."
-                : "Veja o dashboard e os contratos de pesquisa. Dados locais, candles privados e controles do proprietário não são carregados para outras contas."}
+                ? "Abra candles completos e rode um replay de portfólio com dinheiro simulado. A execução externa continua desligada."
+                : "Acompanhe cotações, candles, conta e ordens da sua própria conta autorizada. Dados privados do proprietário não são carregados."}
             </p>
-            <div className="workspace-badges"><span>ORDENS DESATIVADAS</span><span>{isOwner ? "DADOS PRIVADOS" : "CONTA PRÓPRIA"}</span>{isOwner ? <span>{alpacaConnection === "connected" ? "ALPACA PAPER · LEITURA" : "ALPACA PAPER PENDENTE"}</span> : viewer ? <span>ALPACA PAPER · OAUTH</span> : null}</div>
+            <div className="workspace-badges"><span>{isOwner ? "ORDENS CONTROLADAS" : "CONTA PRÓPRIA"}</span><span>{isOwner ? "DADOS PRIVADOS" : "OAUTH"}</span>{isOwner ? <span>{alpacaConnection === "connected" ? "ALPACA PAPER · LEITURA" : "ALPACA PAPER PENDENTE"}</span> : viewer ? <span>ALPACA PAPER · OAUTH</span> : null}</div>
             <div className="workspace-actions">
-              {isOwner ? <><button className="button button-outline" onClick={() => setActiveView("paper")}>Abrir Paper monitor</button><button className="button button-outline" onClick={() => setActiveView("market")}>Abrir Market data</button><button className="button button-outline" onClick={() => setActiveView("portfolio")}>Abrir Portfolio</button><a className="button button-primary" href="/alpaca/connect">Configurar OAuth</a></> : viewer ? null : <span className="small-muted">Faça login como proprietário para a camada privada.</span>}
-              {!isOwner && viewer ? <><button className="button button-outline" onClick={() => setActiveView("paper")}>Abrir Paper workspace</button><a className="button button-primary" href="/alpaca/connect">Conectar minha Alpaca</a></> : null}
+              {isOwner ? <><button className="button button-outline" onClick={() => navigate("paper")}>Abrir Paper monitor</button><button className="button button-outline" onClick={() => navigate("market")}>Abrir Market data</button><button className="button button-outline" onClick={() => navigate("portfolio")}>Abrir Portfolio</button><a className="button button-primary" href="/alpaca/connect">Configurar OAuth</a></> : viewer ? <><button className="button button-outline" onClick={() => navigate("paper")}>Abrir Paper workspace</button><a className="button button-primary" href="/alpaca/connect">Conectar minha Alpaca</a></> : <span className="small-muted">Faça login para conectar sua conta.</span>}
             </div>
           </article>
-          <article className="panel workspace-mode-card workspace-research-card">
-            <div className="panel-kicker">Offline research</div>
-            <h2>Experimentos, dados e proveniência</h2>
-            <p className="panel-copy">Importe relatórios reais ou use a API local para testar Development e Validation OOS. O Holdout continua protegido.</p>
-            <div className="workspace-actions"><button className="button button-primary" onClick={() => setActiveView("experiments")}>Abrir ferramentas de pesquisa <span aria-hidden="true">→</span></button></div>
-          </article>
+          {isOwner ? <article className="panel workspace-mode-card workspace-research-card"><div className="panel-kicker">Research tools</div><h2>Teste cenários com dados identificados</h2><p className="panel-copy">Importe resultados reais ou use a API local para Development e Validation OOS. O holdout continua protegido.</p><div className="workspace-actions"><button className="button button-primary" onClick={() => navigate("experiments")}>Abrir Experiments <span aria-hidden="true">→</span></button></div></article> : <article className="panel workspace-mode-card workspace-research-card"><div className="panel-kicker">Account tools</div><h2>Origem e preferências no seu controle</h2><p className="panel-copy">Confira a origem dos dados e ajuste a densidade, ajuda contextual e marcações do gráfico neste dispositivo.</p><div className="workspace-actions"><button className="button button-outline" onClick={() => navigate("provenance")}>Data & trust</button><button className="button button-primary" onClick={() => navigate("settings")}>Settings</button></div></article>}
         </section>
 
         {renderMarketPreview()}
@@ -1611,16 +1616,16 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
           </article>
 
           <article className="panel panel-integrity">
-            <div className="panel-kicker">Integrity checks</div>
-            <h2>O que está protegido</h2>
+            <div className="panel-kicker">Control checks</div>
+            <h2>O que permanece sob controle</h2>
             <div className="integrity-list">
               <div><span className="check">✓</span><span>Close confirmado → próximo open</span></div>
               <div><span className="check">✓</span><span>RAW, actions e normalized separados</span></div>
               <div><span className="check">✓</span><span>Holdout não executável pelo painel</span></div>
               <div><span className="check">✓</span><span>Sem broker, credenciais ou ordens</span></div>
             </div>
-            <button className="text-link" onClick={() => setActiveView("provenance")}>
-              Abrir contrato de segurança <span aria-hidden="true">↗</span>
+            <button className="text-link" onClick={() => navigate("provenance")}>
+              Ver origem e limites <span aria-hidden="true">↗</span>
             </button>
           </article>
         </section>
@@ -1749,7 +1754,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
               <article className="panel candle-panel">
                 <div className="panel-heading"><div><div className="panel-kicker">OHLCV / {market.timeframe}</div><h2>{market.symbol} — candle chart</h2></div><span className="source-pill">{market.returned_row_count} de {market.available_row_count} barras</span></div>
                 <div className="chart-legend"><span><i className="legend-up" /> alta</span><span><i className="legend-down" /> baixa</span><span><i className="legend-sma20" /> SMA20</span><span><i className="legend-sma50" /> SMA50</span><span><i className="legend-sma200" /> SMA200</span><span>corpo + sombra + volume</span></div>
-                <CandleChart candles={market.candles} symbol={market.symbol} />
+                <CandleChart candles={market.candles} symbol={market.symbol} persistDrawings={persistDrawings} />
                 <div className="chart-footnote">Os horários do gráfico são eventos em UTC convertidos a partir da sessão regular. A barra final é marcada como encerrada pelo manifesto histórico.</div>
               </article>
               <article className="panel source-panel">
@@ -1838,23 +1843,90 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
   function renderProvenance() {
     return (
       <section className="page-stack">
-        <div className="page-heading"><div><div className="eyebrow">Data & provenance</div><h1>A evidência começa no que pode ser refeito.</h1></div><span className="source-pill">local-first</span></div>
+        <div className="page-heading"><div><div className="eyebrow">Admin / provenance</div><h1>Controle técnico e evidência do produto.</h1></div><span className="source-pill">owner only</span></div>
         <div className="provenance-grid">
           <article className="panel provenance-main"><div className="panel-kicker">Data contract</div><h2>O que esta interface aceita</h2><div className="contract-list"><div><span className="contract-key">RAW</span><p>Dados do provedor preservados separadamente; não são embutidos no site público.</p></div><div><span className="contract-key">ACTIONS</span><p>Ações corporativas permanecem auditáveis e não são recarregadas como um detalhe invisível.</p></div><div><span className="contract-key">NORMALIZED</span><p>O painel aceita <code>all_trials.csv</code> ou JSON exportado e calcula o resumo no navegador.</p></div><div><span className="contract-key">HASH</span><p>Dataset, manifesto, commit e lockfile continuam sendo a autoridade; o painel é uma camada de leitura.</p></div></div></article>
           <article className="panel safety-panel"><div className="safety-mark">0</div><div className="panel-kicker">Safety boundary</div><h2>Paper privado, live bloqueado</h2><p>A camada direta usa somente a conta Paper do proprietário, com credenciais server-side, allowlist, limites pequenos, reconciliação e kill switch. Live trading continua inexistente.</p><div className="safety-tags"><span>PAPER OWNER ONLY</span><span>LIVE OFF</span><span>KILL SWITCH</span></div></article>
         </div>
         <article className="panel provenance-table"><div className="panel-heading"><div><div className="panel-kicker">Evidence status</div><h2>Mapa de entregas</h2></div></div><div className="status-table"><div><strong>V0.1</strong><span className="status-complete">COMPLETA</span><p>Backtest causal, registry append-only, holdout controlado.</p></div><div><strong>V0.2</strong><span className="status-complete">REPRODUZIDA</span><p>60/60 configurações primárias no gate independente.</p></div><div><strong>V0.3</strong><span className="status-current">PAPER LOCAL</span><p>Conta, IEX, WebSocket, posições, ordens e cancelamento sob kill switch.</p></div><div><strong>V0.4–V0.6</strong><span className="status-bridge">EM EVOLUÇÃO</span><p>TradingView, Forex e portfólio continuam separados do executor Paper.</p></div><div><strong>V1.0</strong><span className="status-current">PRIVADA</span><p>Interface owner, dados reais server-side, mobile e proveniência.</p></div></div></article>
+        <div className="admin-tools-grid">
+          <article className="panel command-panel"><div className="panel-kicker">Use tips / reprodução</div><h2>Comando preparado para repetir um trial</h2><p className="panel-copy">O comando é uma ponte para o motor local. Ele não roda no site e não libera o Project Holdout.</p><pre><code>{command}</code></pre><button className="button button-outline full-width" onClick={() => void copyCommand()}>Copiar comando</button></article>
+          <article className="panel admin-contract-panel"><div className="panel-kicker">Fixed parameters</div><h2>Contratos que não devem ser alterados aqui</h2><div className="admin-contract-list"><div><strong>DECISÃO</strong><span>close confirmado → próximo open válido</span></div><div><strong>BASE</strong><span>RAW, ações e normalized separados</span></div><div><strong>RISCO</strong><span>long-only, shares inteiras, sem leverage</span></div><div><strong>GATE</strong><span>holdout protegido e live ausente</span></div></div><InfoDisclosure title="Abrir mapa técnico"><p>O código canônico permanece no repositório local. Esta página reúne o mapa para revisão humana, não substitui os manifestos ou os artefatos imutáveis.</p></InfoDisclosure></article>
+        </div>
       </section>
     );
   }
 
-  const visibleActiveView: ViewId = !isOwner && !viewer && (activeView === "paper" || activeView === "market" || activeView === "portfolio") ? "overview" : activeView;
+  function renderData() {
+    return (
+      <section className="page-stack">
+        <div className="page-heading"><div><div className="eyebrow">Data & trust</div><h1>Veja de onde vem cada número.</h1></div><span className="source-pill">transparência</span></div>
+        <div className="trust-overview-grid">
+          <article className="panel trust-card"><span className="trust-card-icon">◎</span><div><h2>Fonte identificada</h2><p>Provedor, versão, horário de coleta e base de preço aparecem quando existem.</p></div><HelpDot label="Sobre a fonte dos dados">A fonte é o serviço ou arquivo que forneceu os candles. Sem essa informação, o valor não é plenamente rastreável.</HelpDot></article>
+          <article className="panel trust-card"><span className="trust-card-icon">✓</span><div><h2>Qualidade visível</h2><p>Completude, duplicidade, ordem das barras, ausências e manifesto ficam junto do resultado.</p></div><HelpDot label="Sobre a qualidade">Qualidade indica se o conjunto passou pelas verificações básicas antes de ser exibido.</HelpDot></article>
+          <article className="panel trust-card"><span className="trust-card-icon">◌</span><div><h2>Histórico ou realtime</h2><p>Snapshot, arquivo local e cotação realtime são estados diferentes. Latência desconhecida permanece desconhecida.</p></div><HelpDot label="Sobre realtime">Realtime significa que uma cotação está chegando agora. Um snapshot histórico não é transmissão ao vivo.</HelpDot></article>
+        </div>
+        <article className="panel data-contract-card">
+          <div className="panel-heading"><div><div className="panel-kicker">Como confiar no painel</div><h2>Transparência sem sobrecarregar a tela</h2></div><span className="api-badge api-offline"><span /> não é recomendação</span></div>
+          <div className="data-contract-grid"><div><strong>RAW</strong><span>preservado na origem quando disponível</span></div><div><strong>NORMALIZED</strong><span>base utilizada para cálculos e gráficos</span></div><div><strong>TIME</strong><span>sessão, timezone e horário do evento</span></div><div><strong>STATUS</strong><span>completo, em formação ou desconhecido</span></div></div>
+          <InfoDisclosure title="Ver a explicação completa"><p>O workspace mostra os metadados necessários para uma decisão informada. O proprietário encontra hashes, manifestos, contratos, comandos de reprodução e mapa do produto em <button className="inline-button" type="button" onClick={() => navigate("admin")}>Admin</button>.</p></InfoDisclosure>
+        </article>
+      </section>
+    );
+  }
+
+  function renderProfile() {
+    const initials = viewer?.displayName.split(" ").map((part) => part[0]).slice(0, 2).join("").toUpperCase() ?? "TL";
+    return (
+      <section className="page-stack account-page">
+        <div className="page-heading"><div><div className="eyebrow">Account / profile</div><h1>Seu perfil e seu nível de acesso.</h1></div><span className="source-pill">sessão atual</span></div>
+        <div className="profile-grid">
+          <article className="panel profile-card"><div className="profile-avatar">{initials}</div><div><h2>{isOwner ? "Proprietário local" : viewer?.displayName ?? "Visitante"}</h2><p>{isOwner ? "Sessão local do proprietário" : viewer?.email ?? "Faça login para personalizar seu workspace."}</p></div><span className="role-pill">{isOwner ? "PROPRIETÁRIO" : viewer ? "USUÁRIO CONECTADO" : "PÚBLICO"}</span></article>
+          <article className="panel access-card"><div className="panel-kicker">Access scope</div><h2>O que aparece para você</h2><div className="access-list"><div><span>Workspace online</span><strong>disponível</strong></div><div><span>Conta Alpaca própria</span><strong>{viewer ? "via OAuth" : "após login"}</strong></div><div><span>Pesquisa local privada</span><strong>{isOwner ? "proprietário" : "restrita"}</strong></div><div><span>Live trading</span><strong className="negative">bloqueado</strong></div></div></article>
+        </div>
+        <article className="panel profile-session"><div><div className="panel-kicker">Session</div><h2>Conta reconhecida pelo ChatGPT</h2><p className="panel-copy">As permissões são definidas no servidor. Credenciais da Alpaca não são exibidas nesta página.</p></div>{viewer ? <a className="button button-outline" href={signOutHref}>Sair</a> : <a className="button button-primary" href={signInHref}>Entrar</a>}</article>
+      </section>
+    );
+  }
+
+  function renderSettings() {
+    return (
+      <section className="page-stack settings-page">
+        <div className="page-heading"><div><div className="eyebrow">Workspace / settings</div><h1>Ajuste a interface ao seu jeito de trabalhar.</h1></div><span className="source-pill">salvo neste dispositivo</span></div>
+        <div className="settings-grid">
+          <article className="panel settings-panel"><div className="panel-kicker">Visualização</div><h2>Preferências do workspace</h2><div className="settings-list"><label className="setting-row" htmlFor="setting-tooltips"><span><strong>Ajuda contextual</strong><small>Mostra o pequeno ? junto dos campos e controles.</small></span><input id="setting-tooltips" aria-label="Ajuda contextual" type="checkbox" checked={tooltipsEnabled} onChange={(event) => setTooltipsEnabled(event.target.checked)} /></label><label className="setting-row" htmlFor="setting-compact"><span><strong>Modo compacto</strong><small>Reduz espaços para caber mais informação na tela.</small></span><input id="setting-compact" aria-label="Modo compacto" type="checkbox" checked={compactMode} onChange={(event) => setCompactMode(event.target.checked)} /></label><label className="setting-row" htmlFor="setting-drawings"><span><strong>Preservar marcações do gráfico</strong><small>Salva linhas e níveis neste dispositivo, por ativo.</small></span><input id="setting-drawings" aria-label="Preservar marcações do gráfico" type="checkbox" checked={persistDrawings} onChange={(event) => setPersistDrawings(event.target.checked)} /></label></div></article>
+          <article className="panel settings-panel"><div className="panel-kicker">Safety defaults</div><h2>Limites que não mudam aqui</h2><div className="settings-list readonly-settings"><div className="setting-row"><span><strong>Live trading</strong><small>Não existe caminho ativo para dinheiro real.</small></span><b>OFF</b></div><div className="setting-row"><span><strong>Holdout</strong><small>Não é executado pela interface.</small></span><b>PROTEGIDO</b></div><div className="setting-row"><span><strong>Credenciais</strong><small>Ficam no servidor ou na autorização oficial.</small></span><b>SERVER-SIDE</b></div></div></article>
+        </div>
+        <article className="panel settings-note"><HelpDot label="Por que estas configurações são locais?">Preferências visuais não devem alterar dados, cálculos ou regras de execução. Elas ficam apenas neste navegador.</HelpDot><span>As preferências alteram aparência e interação; não alteram resultados, estratégias ou permissões.</span></article>
+      </section>
+    );
+  }
+
+  function renderHelp() {
+    return (
+      <section className="page-stack help-page">
+        <div className="page-heading"><div><div className="eyebrow">Help / guide</div><h1>Orientação rápida, quando você precisar.</h1></div><span className="source-pill">sem excesso de texto</span></div>
+        <div className="help-grid">
+          <article className="panel help-intro"><div className="help-mark">?</div><div><h2>Como navegar</h2><p>Use a barra lateral para trocar de área. No gráfico, passe o mouse sobre uma barra, use a roda para zoom e escolha uma ferramenta para mover ou marcar.</p></div></article>
+          <article className="panel help-contact"><div className="panel-kicker">Contact</div><h2>Fale com o proprietário</h2><p>Para dúvidas sobre acesso, dados ou integração, envie uma mensagem pelo canal de contato.</p><a className="button button-outline" href="mailto:igorbolognani@hotmail.com">Enviar mensagem</a></article>
+        </div>
+        <div className="help-topics"><InfoDisclosure title="Dashboard"><p>O Dashboard reúne o gráfico principal, o resumo filtrado e os atalhos para Paper, Market data e Portfolio quando sua conta possui essa permissão.</p></InfoDisclosure><InfoDisclosure title="Gráfico"><p>Cursor inspeciona uma barra; Mover navega; Nível e Linha desenham; Marcar registra um ponto. SMA e volume podem ser ligados ou desligados.</p></InfoDisclosure><InfoDisclosure title="Paper workspace"><p>Mostra conta, poder de compra, cotações, candles, posições e ordens da conta autorizada. O status de segurança informa quando uma ação está bloqueada.</p></InfoDisclosure><InfoDisclosure title="Dados e confiança"><p>A página Data & trust resume origem e qualidade. O proprietário também pode abrir Admin para contratos, hashes e comandos de reprodução.</p></InfoDisclosure></div>
+      </section>
+    );
+  }
+
+  const ownerOnlyViews: ViewId[] = ["market", "portfolio", "experiments", "admin"];
+  const visibleActiveView: ViewId = !isOwner && ownerOnlyViews.includes(activeView)
+    ? "overview"
+    : !viewer && activeView === "paper"
+      ? "overview"
+      : activeView;
   function openCandleImporter() {
     if (candleFileInput.current) {
       candleFileInput.current.click();
       return;
     }
-    setActiveView("overview");
+    navigate("overview");
     window.setTimeout(() => candleFileInput.current?.click(), 0);
   }
 
@@ -1865,7 +1937,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
           <div className="public-brand"><Image className="public-logo" src="/tradinglab-logo.svg" width={500} height={112} alt="TradingLAB — Trading tools · decisão com controle" priority /></div>
           <nav className="public-tool-nav" aria-label="Atalhos da apresentação"><a href="#market-preview">Mercado</a><a href="#public-features">Ferramentas</a><a href="#public-how-to-use">Como usar</a></nav>
           <div className="public-header-actions">
-            {viewer ? <button className="auth-link auth-link-primary" onClick={() => setActiveView("overview")}>Abrir aplicativo</button> : <a className="auth-link auth-link-primary" href={signInHref}>Entrar com ChatGPT</a>}
+            {viewer ? <button className="auth-link auth-link-primary" onClick={() => navigate("overview")}>Abrir aplicativo</button> : <a className="auth-link auth-link-primary" href={signInHref}>Entrar com ChatGPT</a>}
           </div>
         </header>
         <div className="public-content">{renderLanding()}</div>
@@ -1880,23 +1952,65 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     ...(isOwner ? [["market", "Market data", "▥"], ["portfolio", "Portfolio replay", "◒"]] as Array<[ViewId, string, string]> : []),
   ];
   const researchNavigation: Array<[ViewId, string, string]> = [
-    ["experiments", "Experiments", "⌘"],
-    ["provenance", "Data & provenance", "⌬"],
+    ...(isOwner ? [["experiments", "Experiments", "⌘"]] as Array<[ViewId, string, string]> : []),
+    ["provenance", "Data & trust", "⌬"],
   ];
-  const workspaceTabs = [...onlineNavigation, ...researchNavigation];
-  const viewContent = visibleActiveView === "overview" ? renderOverview() : visibleActiveView === "paper" ? <PaperControl userMode={!isOwner} /> : visibleActiveView === "market" ? renderMarket() : visibleActiveView === "experiments" ? renderExperiments() : visibleActiveView === "portfolio" ? renderPortfolio() : renderProvenance();
+  const manageNavigation: Array<[ViewId, string, string]> = [
+    ["profile", "Profile", "◉"],
+    ["settings", "Settings", "⚙"],
+    ["help", "Help & contact", "?"],
+    ...(isOwner ? [["admin", "Admin / use tips", "⌘"]] as Array<[ViewId, string, string]> : []),
+  ];
+  const viewContent = visibleActiveView === "overview"
+    ? renderOverview()
+    : visibleActiveView === "paper"
+      ? <PaperControl userMode={!isOwner} />
+      : visibleActiveView === "market"
+        ? renderMarket()
+        : visibleActiveView === "experiments"
+          ? renderExperiments()
+          : visibleActiveView === "portfolio"
+            ? renderPortfolio()
+            : visibleActiveView === "provenance"
+              ? renderData()
+              : visibleActiveView === "admin"
+                ? renderProvenance()
+                : visibleActiveView === "profile"
+                  ? renderProfile()
+                  : visibleActiveView === "settings"
+                    ? renderSettings()
+                    : renderHelp();
+  const viewLabels: Record<ViewId, string> = {
+    landing: "Landing",
+    overview: "Home / dashboard",
+    paper: isOwner ? "Paper monitor" : "Paper workspace",
+    market: "Market data",
+    experiments: "Experiments",
+    portfolio: "Portfolio replay",
+    provenance: "Data & trust",
+    profile: "Profile",
+    settings: "Settings",
+    help: "Help & contact",
+    admin: "Admin / use tips",
+  };
+  const showFilters = visibleActiveView === "overview" || visibleActiveView === "experiments";
+  const showImport = visibleActiveView === "overview" || visibleActiveView === "market";
 
   return (
-    <main className="app-shell">
-      <aside className="sidebar">
-        <div className="brand"><AppMark /><div><strong>TradingLAB</strong><span>Research workspace</span></div></div>
-        <div className="sidebar-section"><div className="sidebar-label">Online workspace</div><nav>{onlineNavigation.map(([id, label, icon]) => <button className={visibleActiveView === id ? "nav-item active" : "nav-item"} onClick={() => setActiveView(id)} key={id}><span aria-hidden="true">{icon}</span>{label}</button>)}</nav></div>
-        <div className="sidebar-section sidebar-research-section"><div className="sidebar-label">Offline research</div><nav>{researchNavigation.map(([id, label, icon]) => <button className={visibleActiveView === id ? "nav-item active" : "nav-item"} onClick={() => setActiveView(id)} key={id}><span aria-hidden="true">{icon}</span>{label}{id === "experiments" ? <em>run</em> : null}</button>)}</nav></div>
-        <div className="sidebar-section sidebar-bottom"><div className="sidebar-label">Access mode</div><div className="safety-status"><span className="status-dot" /><div><strong>{isOwner ? "Owner workspace" : viewer ? "Connected workspace" : "Public workspace"}</strong><small>{isOwner ? "online monitor + offline research" : viewer ? "own Alpaca account only" : "private data hidden"}</small></div></div><div className="version-box"><span>Current build</span><strong>V1.0 research</strong><small>live execution disabled</small></div></div>
+    <main className={`app-shell ${compactMode ? "is-compact" : ""} ${tooltipsEnabled ? "tooltips-on" : "tooltips-off"}`}>
+      {sidebarOpen ? <button className="sidebar-scrim" type="button" aria-label="Fechar menu" onClick={() => setSidebarOpen(false)} /> : null}
+      <aside className={`sidebar ${sidebarOpen ? "is-open" : ""}`}>
+        <div className="brand"><AppMark /><div><strong>TradingLAB</strong><span>Trading workspace</span></div><button className="sidebar-close" type="button" aria-label="Fechar menu" onClick={() => setSidebarOpen(false)}>×</button></div>
+        <div className="sidebar-scroll">
+          <div className="sidebar-section"><div className="sidebar-label">Workspace</div><nav>{onlineNavigation.map(([id, label, icon]) => <button className={visibleActiveView === id ? "nav-item active" : "nav-item"} onClick={() => navigate(id)} key={id}><span aria-hidden="true">{icon}</span>{label}{id === "paper" ? <em>paper</em> : null}</button>)}</nav></div>
+          <div className="sidebar-section sidebar-research-section"><div className="sidebar-label">Research</div><nav>{researchNavigation.map(([id, label, icon]) => <button className={visibleActiveView === id ? "nav-item active" : "nav-item"} onClick={() => navigate(id)} key={id}><span aria-hidden="true">{icon}</span>{label}{id === "experiments" ? <em>owner</em> : null}</button>)}</nav></div>
+          <div className="sidebar-section sidebar-manage-section"><div className="sidebar-label">Manage</div><nav>{manageNavigation.map(([id, label, icon]) => <button className={visibleActiveView === id ? "nav-item active" : "nav-item"} onClick={() => navigate(id)} key={id}><span aria-hidden="true">{icon}</span>{label}{id === "admin" ? <em>owner</em> : null}</button>)}</nav></div>
+        </div>
+        <div className="sidebar-section sidebar-bottom"><div className="sidebar-label">Safety status</div><div className="safety-status"><span className="status-dot" /><div><strong>{isOwner ? "Owner workspace" : "Connected workspace"}</strong><small>{isOwner ? "online + offline tools" : "own account / public data"}</small></div></div><div className="version-box"><span>Product state</span><strong>V1.0 workspace</strong><small>live execution disabled</small></div></div>
       </aside>
       <div className="main-column">
-        <header className="topbar"><div className="mobile-brand"><AppMark /><strong>TradingLAB</strong></div><div className="breadcrumb"><span>TradingLAB</span><b>/</b><strong>{activeView === "overview" ? "Home / dashboard" : activeView === "paper" ? "Paper monitor" : activeView === "market" ? "Market data" : activeView === "experiments" ? "Experiments" : activeView === "portfolio" ? "Portfolio replay" : "Data & provenance"}</strong></div><div className="topbar-right"><span className="sync-label"><span className="status-dot" /> {isOwner ? (localApiAvailable ? "Snapshot local conectado" : "Workspace privado") : "Public research"}</span>{viewer ? <><span className="viewer-label">{viewer.displayName}</span><a className="auth-link" href={signOutHref}>Sair</a></> : <a className="auth-link auth-link-primary" href={signInHref}>Entrar com ChatGPT</a>}</div></header>
-        <div className="content"><div className="workspace-tabbar"><nav aria-label="Abas do workspace">{workspaceTabs.map(([id, label, icon]) => <button className={visibleActiveView === id ? "workspace-tab active" : "workspace-tab"} onClick={() => setActiveView(id)} key={id}><span aria-hidden="true">{icon}</span>{label}</button>)}</nav><button className="button button-outline workspace-import-button" type="button" onClick={openCandleImporter}>Inserir candles</button></div><div className="filter-strip"><div className="filter-title"><span className="filter-icon">≡</span><strong>View filters</strong><span>{filteredRows.length} rows</span></div><div className="filter-control"><span className="filter-control-label">Strategy</span><select aria-label="Strategy" value={strategy} onChange={(event) => setStrategy(event.target.value)}><option value="ALL">All strategies</option>{STRATEGIES.map((item) => <option key={item} value={item}>{labelForStrategy(item)}</option>)}</select></div><div className="filter-control"><span className="filter-control-label">Asset</span><select aria-label="Asset" value={asset} onChange={(event) => setAsset(event.target.value)}><option value="ALL">All assets</option>{ASSETS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><div className="filter-control"><span className="filter-control-label">Split</span><select aria-label="Split" value={split} onChange={(event) => setSplit(event.target.value)}><option value="ALL">All splits</option>{SPLITS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><button className="reset-button" onClick={resetData}>Limpar dados</button></div>{viewContent}</div>
+        <header className="topbar"><div className="mobile-brand"><button className="mobile-menu-button" type="button" aria-label="Abrir menu" onClick={() => setSidebarOpen(true)}>☰</button><AppMark /><strong>TradingLAB</strong></div><div className="breadcrumb"><span>TradingLAB</span><b>/</b><strong>{viewLabels[visibleActiveView]}</strong></div><div className="topbar-right"><span className="sync-label"><span className="status-dot" /> {isOwner ? (localApiAvailable ? "Snapshot local conectado" : "Workspace privado") : "Workspace online"}</span>{viewer ? <><button className="avatar" type="button" aria-label="Abrir perfil" onClick={() => navigate("profile")}>{viewer.displayName.slice(0, 1).toUpperCase()}</button><a className="auth-link" href={signOutHref}>Sair</a></> : isOwner ? <span className="auth-link auth-link-local">Owner local</span> : <a className="auth-link auth-link-primary" href={signInHref}>Entrar</a>}</div></header>
+        <div className="content"><div className="page-toolbar"><div><span className="page-toolbar-kicker">{isOwner ? "Owner workspace" : "Personal workspace"}</span><strong>{viewLabels[visibleActiveView]}</strong></div><div className="page-toolbar-actions">{showImport ? <button className="button button-outline" type="button" onClick={openCandleImporter}>Inserir candles</button> : null}{visibleActiveView === "overview" && viewer ? <button className="button button-primary" type="button" onClick={() => navigate("paper")}>Abrir Paper</button> : null}</div></div>{showFilters ? <div className="filter-strip"><div className="filter-title"><span className="filter-icon">≡</span><strong>Filtros</strong><span>{filteredRows.length} resultados</span><HelpDot label="Sobre os filtros">Os filtros alteram apenas o recorte visual dos resultados importados.</HelpDot></div><div className="filter-control"><span className="filter-control-label">Estratégia <HelpDot label="Sobre estratégia">A regra que gerou o resultado.</HelpDot></span><select aria-label="Strategy" value={strategy} onChange={(event) => setStrategy(event.target.value)}><option value="ALL">Todas</option>{STRATEGIES.map((item) => <option key={item} value={item}>{labelForStrategy(item)}</option>)}</select></div><div className="filter-control"><span className="filter-control-label">Ativo <HelpDot label="Sobre ativo">O símbolo do ETF ou ativo analisado.</HelpDot></span><select aria-label="Asset" value={asset} onChange={(event) => setAsset(event.target.value)}><option value="ALL">Todos</option>{ASSETS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><div className="filter-control"><span className="filter-control-label">Período <HelpDot label="Sobre período">A divisão temporal usada na pesquisa.</HelpDot></span><select aria-label="Split" value={split} onChange={(event) => setSplit(event.target.value)}><option value="ALL">Todos</option>{SPLITS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><button className="reset-button" onClick={resetData}>Limpar</button></div> : null}{viewContent}</div>
         <footer className="footer"><span>TradingLAB · Quant / Systematic Research Lab</span><span>Research first · evidence before execution</span></footer>
       </div>
     </main>

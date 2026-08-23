@@ -27,12 +27,12 @@ test("server-renders the TradingLAB control room", async () => {
   const html = await response.text();
   assert.match(html, /TradingLAB — Ferramentas de trading com clareza e controle/i);
   assert.match(html, /Trading tools · decisão com controle/i);
-  assert.match(html, /Trading workflow/i);
-  assert.match(html, /Gráficos completos/i);
+  assert.match(html, /Workspace preview/i);
+  assert.match(html, /Gráfico interativo/i);
   assert.match(html, /Gráfico de mercado/i);
   assert.match(html, /Entrar com ChatGPT/i);
   assert.match(html, /public-shell/i);
-  assert.match(html, /Comece pela experiência pública/i);
+  assert.match(html, /O mercado em um espaço de trabalho mais claro/i);
   assert.doesNotMatch(html, /Research loop|Quant \/ systematic research lab|Pesquisa auditável|Um laboratório/i);
   assert.doesNotMatch(html, /class="sidebar"/i);
   assert.doesNotMatch(html, /Home \/ dashboard/i);
@@ -48,9 +48,9 @@ test("authenticated visitors enter the app without private owner navigation", as
     "oai-authenticated-user-full-name": "Viewer",
   });
   const html = await response.text();
-  assert.match(html, /class="sidebar"/i);
+  assert.match(html, /class="sidebar\b/i);
   assert.match(html, /Home \/ dashboard/i);
-  assert.match(html, /Offline research/i);
+  assert.match(html, /Data (?:&amp;|&) trust/i);
   assert.doesNotMatch(html, /Portfolio replay/i);
   assert.doesNotMatch(html, /Market data/i);
 });
@@ -65,7 +65,7 @@ test("the configured owner enters the app with private navigation", async () => 
       "oai-authenticated-user-full-name": "Owner",
     });
     const html = await response.text();
-    assert.match(html, /class="sidebar"/i);
+    assert.match(html, /class="sidebar\b/i);
     assert.match(html, /Market data/i);
     assert.match(html, /Portfolio replay/i);
     assert.match(html, /live execution disabled/i);
@@ -102,12 +102,12 @@ test("keeps site assets inside the app source", async () => {
   assert.match(client, /Candles completos/);
   assert.match(client, /Project Holdout/);
   assert.match(client, /public-shell/);
-  assert.match(client, /Online workspace/);
-  assert.match(client, /Offline research/);
+  assert.match(client, /Workspace/);
+  assert.match(client, /Data & trust/);
   assert.match(client, /interactive-chart-shell/);
   assert.match(client, /onWheel/);
   assert.match(client, /addEventListener\("wheel"/);
-  assert.match(client, /workspace-tabbar/);
+  assert.match(client, /page-toolbar/);
   assert.match(client, /Inserir candles/);
   assert.match(client, /localStorage/);
   assert.match(client, /Linha/);
