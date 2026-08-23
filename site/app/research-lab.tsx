@@ -1062,10 +1062,30 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
   const [portfolioFriction, setPortfolioFriction] = useState("5");
   const [isRunningPortfolio, setIsRunningPortfolio] = useState(false);
   const [portfolioNotice, setPortfolioNotice] = useState("");
+  const [alpacaConnection, setAlpacaConnection] = useState<"loading" | "connected" | "disconnected">("disconnected");
   const fileInput = useRef<HTMLInputElement>(null);
   const candleFileInput = useRef<HTMLInputElement>(null);
   const portfolioFileInput = useRef<HTMLInputElement>(null);
   const autoLoadedDatasetRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isOwner) return;
+    let active = true;
+    fetch("/api/alpaca/status", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("status unavailable");
+        return (await response.json()) as { connected?: boolean };
+      })
+      .then((payload) => {
+        if (active) setAlpacaConnection(payload.connected ? "connected" : "disconnected");
+      })
+      .catch(() => {
+        if (active) setAlpacaConnection("disconnected");
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOwner]);
 
   useEffect(() => {
     if (!isOwner) {
@@ -1520,9 +1540,9 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
                 ? "Abra candles completos do snapshot local e rode um replay de portfólio com dinheiro simulado. A execução externa continua desligada."
                 : "Veja o dashboard e os contratos de pesquisa. Dados locais, candles privados e controles do proprietário não são carregados para outras contas."}
             </p>
-            <div className="workspace-badges"><span>LIVE DESATIVADO</span><span>{isOwner ? "DADOS LOCAIS" : "ACESSO PÚBLICO"}</span></div>
+            <div className="workspace-badges"><span>ORDENS DESATIVADAS</span><span>{isOwner ? "DADOS LOCAIS" : "ACESSO PÚBLICO"}</span>{isOwner ? <span>{alpacaConnection === "connected" ? "ALPACA PAPER · LEITURA" : "ALPACA OAUTH PENDENTE"}</span> : null}</div>
             <div className="workspace-actions">
-              {isOwner ? <><button className="button button-outline" onClick={() => setActiveView("market")}>Abrir Market data</button><button className="button button-outline" onClick={() => setActiveView("portfolio")}>Abrir Portfolio</button></> : <span className="small-muted">Faça login como proprietário para a camada privada.</span>}
+              {isOwner ? <><button className="button button-outline" onClick={() => setActiveView("market")}>Abrir Market data</button><button className="button button-outline" onClick={() => setActiveView("portfolio")}>Abrir Portfolio</button><a className="button button-primary" href="/api/alpaca/oauth/start?env=paper">{alpacaConnection === "connected" ? "Reconectar Alpaca Paper" : "Conectar Alpaca Paper"}</a></> : <span className="small-muted">Faça login como proprietário para a camada privada.</span>}
             </div>
           </article>
           <article className="panel workspace-mode-card workspace-research-card">
