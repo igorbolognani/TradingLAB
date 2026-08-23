@@ -53,6 +53,9 @@ test("authenticated visitors enter the app without private owner navigation", as
   assert.match(html, /class="sidebar\b/i);
   assert.match(html, /Home \/ dashboard/i);
   assert.match(html, /Data (?:&amp;|&) trust/i);
+  assert.match(html, /Seu gráfico principal/i);
+  assert.doesNotMatch(html, /View filters|Resumo filtrado|Comparação de famílias|Evidence matrix|Integrity checks/i);
+  assert.doesNotMatch(html, /importe um resultado local|Carregue all_trials\.csv/i);
   assert.doesNotMatch(html, /Portfolio replay/i);
   assert.doesNotMatch(html, /Market data/i);
 });

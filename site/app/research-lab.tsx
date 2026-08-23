@@ -1463,10 +1463,10 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
         ) : (
           <div className="chart-empty-state">
             <div className="chart-empty-grid" aria-hidden="true"><span /><span /><span /><span /><i /><i /><i /></div>
-            <div className="chart-empty-copy"><div className="panel-kicker">Área de trabalho pronta</div><h3>{publicMode ? "Insira dados reais para começar" : "O gráfico será preenchido ao conectar uma fonte"}</h3><p>{publicMode ? "O arquivo permanece no seu navegador e não é enviado para o TradingLAB. Depois de carregar, use Cursor, Mover, Nível, Linha e Marcar." : "No computador do laboratório, o snapshot privado é carregado automaticamente. Se estiver em outro dispositivo, insira um CSV validado para trabalhar localmente."}</p><button className="button button-primary" type="button" onClick={() => candleFileInput.current?.click()}>Inserir candles</button></div>
+            <div className="chart-empty-copy"><div className="panel-kicker">Sem dados</div><h3>Carregue candles para começar</h3><p>{publicMode ? "O arquivo fica neste navegador." : "Use um CSV validado ou o snapshot local."}</p><button className="button button-primary" type="button" onClick={() => candleFileInput.current?.click()}>Inserir candles</button></div>
           </div>
         )}
-        <div className="chart-footnote">{market ? `${market.freshness.message} Os indicadores são calculados sobre a série completa antes do recorte visual.` : "Nenhum preço é inventado: sem dados válidos, o gráfico permanece vazio."}</div>
+        <div className="chart-footnote">{market ? `${market.freshness.message} Os indicadores são calculados sobre a série completa antes do recorte visual.` : "Aguardando dados válidos."}</div>
       </section>
     );
   }
@@ -1565,6 +1565,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
 
         {renderMarketPreview()}
 
+        {isOwner ? <>
         <section className="metric-grid" aria-label="Resumo filtrado">
           <MetricCard
             label="CAGR mediano"
@@ -1667,6 +1668,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
             </div>
           ) : <EmptyState message="Nenhuma linha corresponde aos filtros atuais." />}
         </section>
+        </> : null}
       </>
     );
   }
@@ -2021,8 +2023,8 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     help: "Help & contact",
     admin: "Admin / use tips",
   };
-  const showFilters = visibleActiveView === "overview" || visibleActiveView === "experiments";
-  const showImport = visibleActiveView === "overview" || visibleActiveView === "market";
+  const showFilters = isOwner && (visibleActiveView === "overview" || visibleActiveView === "experiments");
+  const showImport = isOwner && (visibleActiveView === "overview" || visibleActiveView === "market");
 
   return (
     <main className={`app-shell ${compactMode ? "is-compact" : ""} ${tooltipsEnabled ? "tooltips-on" : "tooltips-off"}`}>
