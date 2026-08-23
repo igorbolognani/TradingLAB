@@ -39,8 +39,10 @@ relevantes.
   horário, completude e estado histórico/realtime.
 - **Admin/use tips** concentra manifestos, hashes, contratos, parâmetros fixos,
   mapa do produto, status de evidência e comandos de reprodução.
-- Ajuda contextual aparece como um pequeno `?` junto ao campo. O texto é curto,
-  aparece no hover ou foco e pode ser desligado em Settings.
+- Ajuda contextual aparece como um pequeno `?` junto ao campo. O texto abre no
+  hover ou foco e pode ser desligado em Settings. Ativos mostram nome, tipo de
+  exposição, função no universo e pontos de atenção; os demais campos explicam
+  a consequência prática da escolha sem alterar o layout principal.
 
 ## Gráfico
 
@@ -53,6 +55,11 @@ O gráfico é um workspace, não uma imagem estática. O usuário pode:
 - ligar/desligar SMA20, SMA50, SMA200 e volume;
 - ajustar a visualização, desfazer e limpar desenhos;
 - salvar ou não as marcações no dispositivo.
+
+No Paper workspace, depois de carregar candles, o mesmo fluxo fica disponível
+no celular: a seção Candles completos mostra um gráfico responsivo, botões para
+40/90/120 barras e um inspetor OHLCV. Basta tocar em uma vela para selecionar a
+barra; o painel não captura o scroll vertical da página.
 
 O gráfico nunca preenche preço ausente com valor inventado. A origem,
 completude, idade, latência e estado `realtime_active` permanecem associados à

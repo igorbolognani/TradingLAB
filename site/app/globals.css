@@ -546,6 +546,13 @@ body { background: var(--canvas); }
 .help-popover { position: absolute; z-index: 30; top: calc(100% + 8px); left: 0; display: none; width: 220px; border: 1px solid #b8c9e4; border-radius: 8px; background: #122238; box-shadow: 0 12px 25px rgb(16 34 55 / 20%); color: #e7effb; padding: 9px 10px; font-size: 9px; font-weight: 500; line-height: 1.45; text-transform: none; letter-spacing: 0; }
 .help-dot-wrap:hover .help-popover, .help-dot:focus + .help-popover { display: block; }
 .tooltips-off .help-dot-wrap { display: none; }
+.help-popover { width: min(330px, calc(100vw - 32px)); max-height: min(360px, calc(100vh - 32px)); overflow: auto; }
+.help-popover-title, .help-popover-copy, .help-popover-footnote { display: block; }
+.help-popover-title { color: #fff; font-size: 10px; line-height: 1.35; }
+.help-popover-copy { margin-top: 6px; color: #cbd8e9; }
+.help-popover-list { display: grid; gap: 5px; margin: 8px 0 0; padding-left: 16px; color: #cbd8e9; }
+.help-popover-list b { color: #fff; }
+.help-popover-footnote { margin-top: 9px; border-top: 1px solid #40536b; padding-top: 7px; color: #9fb2cb; font-size: 8px; }
 .inline-button { border: 0; background: transparent; color: var(--blue-deep); padding: 0; font-weight: 750; text-decoration: underline; }
 .compact-disclosure { border-top: 1px solid var(--line); color: var(--ink-soft); }
 .compact-disclosure summary { cursor: pointer; list-style: none; padding: 12px 0; color: var(--ink); font-size: 10px; font-weight: 750; }
@@ -557,6 +564,22 @@ body { background: var(--canvas); }
 .landing-info-stack { display: grid; align-content: start; gap: 0; border: 1px solid var(--line); border-radius: 11px; background: var(--surface); padding: 5px 16px; }
 .landing-info-stack .compact-disclosure:first-child { border-top: 0; }
 .landing-info-stack .compact-disclosure-body { font-size: 10px; }
+.paper-candle-chart { display: grid; gap: 10px; margin-top: 16px; }
+.paper-chart-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #edf1f6; border-bottom: 1px solid #edf1f6; padding: 9px 0; }
+.paper-chart-hint { color: var(--ink-faint); font-size: 9px; }
+.paper-chart-range { display: flex; flex-wrap: wrap; gap: 4px; }
+.paper-chart-range button { min-width: 32px; min-height: 26px; border: 1px solid var(--line); border-radius: 5px; background: #fff; color: var(--ink-soft); padding: 0 7px; font: 9px var(--font-geist-mono), monospace; }
+.paper-chart-range button:hover, .paper-chart-range button.active { border-color: #b9caf0; background: #edf2ff; color: var(--blue-deep); }
+.paper-chart-range button:disabled { cursor: not-allowed; opacity: .42; }
+.paper-chart-canvas-wrap { overflow: hidden; border: 1px solid #dfe7f1; border-radius: 8px; background: #fbfdff; }
+.paper-chart-canvas { display: block; width: 100%; height: auto; min-height: 250px; touch-action: pan-y; user-select: none; }
+.paper-chart-grid { stroke: #e5eaf2; stroke-width: 1; }
+.paper-chart-axis { fill: #8190a5; font: 10px ui-monospace, monospace; }
+.paper-chart-selection { stroke: #8a98aa; stroke-dasharray: 3 3; stroke-width: 1; }
+.paper-chart-inspector { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.paper-chart-inspector > div { display: grid; min-width: 0; gap: 5px; border-left: 2px solid #e1eaf4; padding-left: 8px; }
+.paper-chart-inspector span { color: var(--ink-faint); font-size: 8px; text-transform: uppercase; }
+.paper-chart-inspector strong { overflow: hidden; color: var(--ink); font: 10px var(--font-geist-mono), monospace; text-overflow: ellipsis; white-space: nowrap; }
 .landing-hero { min-height: 455px; gap: 42px; padding-top: 17px; }
 .landing-hero h1 { max-width: 620px; font-size: clamp(37px, 5vw, 62px); }
 .landing-hero-copy .hero-copy { max-width: 570px; font-size: 14px; }
@@ -655,7 +678,12 @@ body { background: var(--canvas); }
   .landing-signal-card { padding: 16px; }
   .landing-access { align-items: flex-start; flex-direction: column; }
   .landing-access .button { width: 100%; }
-  .help-popover { position: fixed; top: auto; right: 14px; bottom: 14px; left: 14px; width: auto; }
+  .help-popover { position: fixed; top: auto; right: 14px; bottom: 14px; left: 14px; width: auto; max-height: min(54vh, 360px); }
+  .paper-chart-toolbar { align-items: flex-start; flex-direction: column; }
+  .paper-chart-range { width: 100%; }
+  .paper-chart-range button { flex: 1; min-height: 34px; }
+  .paper-chart-canvas { min-height: 220px; }
+  .paper-chart-inspector { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 8px; }
   .footer { padding-inline: 14px; }
 }
 
