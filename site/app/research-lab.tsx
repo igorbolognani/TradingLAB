@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChangeEvent } from "react";
+import type { ChangeEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type ViewId = "landing" | "overview" | "market" | "experiments" | "portfolio" | "provenance";
@@ -41,6 +41,18 @@ type Candle = {
   atr_14?: number | null;
   is_complete?: boolean | null;
 };
+
+type ChartTool = "crosshair" | "pan" | "horizontal" | "trend" | "marker";
+type IndicatorKey = "sma_20" | "sma_50" | "sma_200" | "volume";
+type ChartDrawing = {
+  id: number;
+  type: "horizontal" | "trend" | "marker";
+  startIndex: number;
+  startPrice: number;
+  endIndex?: number;
+  endPrice?: number;
+};
+type ChartHover = { index: number; x: number; y: number };
 
 type CandlePayload = {
   symbol: string;
@@ -591,12 +603,75 @@ function formatPrice(value: number | null | undefined): string {
   return value == null ? "—" : value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 }
 
-function CandleChart({ candles }: { candles: Candle[] }) {
+function CandleChart({ candles, symbol }: { candles: Candle[]; symbol: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const dragRef = useRef<{ startX: number; start: number; end: number } | null>(null);
+  const drawingIdRef = useRef<number | null>(null);
+  const drawingsLoadedRef = useRef(false);
+  const valid = useMemo(
+    () => candles.filter((candle) => candle.high != null && candle.low != null),
+    [candles],
+  );
+  const [view, setView] = useState({ start: 0, end: 0 });
+  const [tool, setTool] = useState<ChartTool>("crosshair");
+  const [hover, setHover] = useState<ChartHover | null>(null);
+  const [draftDrawing, setDraftDrawing] = useState<ChartDrawing | null>(null);
+  const [drawings, setDrawings] = useState<ChartDrawing[]>([]);
+  const [indicatorVisibility, setIndicatorVisibility] = useState<Record<IndicatorKey, boolean>>({
+    sma_20: true,
+    sma_50: true,
+    sma_200: true,
+    volume: true,
+  });
+  const viewWindow = useMemo(() => {
+    const defaultCount = Math.min(90, valid.length);
+    if (!valid.length) return { start: 0, end: 0 };
+    const requestedCount = view.end > view.start ? view.end - view.start : defaultCount;
+    const count = Math.max(24, Math.min(valid.length, requestedCount));
+    const requestedStart = view.end > view.start ? view.start : valid.length - count;
+    const start = Math.max(0, Math.min(valid.length - count, requestedStart));
+    return { start, end: start + count };
+  }, [valid.length, view]);
+  const visible = useMemo(() => valid.slice(viewWindow.start, viewWindow.end), [valid, viewWindow]);
+  const chartMetrics = useMemo(() => {
+    const prices = visible.flatMap((candle) => [candle.high ?? 0, candle.low ?? 0]);
+    const maximum = Math.max(...prices, 1);
+    const minimum = Math.min(...prices, maximum);
+    return { maximum, minimum, range: Math.max(maximum - minimum, Math.abs(maximum) * 0.002, 0.000001) };
+  }, [visible]);
+
+  useEffect(() => {
+    drawingsLoadedRef.current = false;
+    let cancelled = false;
+    const loadDrawings = window.setTimeout(() => {
+      if (cancelled) return;
+      try {
+        const stored = window.localStorage.getItem(`tradinglab-chart-drawings:${symbol}`);
+        const parsed = stored ? JSON.parse(stored) : [];
+        setDrawings(Array.isArray(parsed) ? (parsed as ChartDrawing[]) : []);
+      } catch {
+        setDrawings([]);
+      }
+      drawingsLoadedRef.current = true;
+    }, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(loadDrawings);
+    };
+  }, [symbol]);
+
+  useEffect(() => {
+    if (!drawingsLoadedRef.current) return;
+    try {
+      window.localStorage.setItem(`tradinglab-chart-drawings:${symbol}`, JSON.stringify(drawings));
+    } catch {
+      // Drawing persistence is a convenience; chart interaction must still work when storage is unavailable.
+    }
+  }, [drawings, symbol]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || !candles.length) return;
+    if (!canvas || !visible.length) return;
     const context = canvas.getContext("2d");
     if (!context) return;
 
@@ -605,35 +680,32 @@ function CandleChart({ candles }: { candles: Candle[] }) {
       const width = Math.max(320, rect.width);
       const height = 360;
       const pixelRatio = window.devicePixelRatio || 1;
+      const left = 60;
+      const right = 14;
+      const top = 18;
+      const priceBottom = 258;
+      const volumeTop = 280;
+      const volumeBottom = 326;
+      const chartWidth = Math.max(120, width - left - right);
+      const slot = chartWidth / Math.max(visible.length, 1);
+      const bodyWidth = Math.max(2, Math.min(13, slot * 0.62));
+      const y = (price: number) => top + ((chartMetrics.maximum - price) / chartMetrics.range) * (priceBottom - top);
+      const x = (index: number) => left + (index - viewWindow.start) * slot + slot / 2;
+      const volumes = visible.map((candle) => candle.volume ?? 0);
+      const maximumVolume = Math.max(...volumes, 1);
+
       canvas.width = width * pixelRatio;
       canvas.height = height * pixelRatio;
       context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
       context.clearRect(0, 0, width, height);
-
-      const valid = candles.filter((candle) => candle.high != null && candle.low != null);
-      if (!valid.length) return;
-      const prices = valid.flatMap((candle) => [candle.high ?? 0, candle.low ?? 0]);
-      const maximum = Math.max(...prices);
-      const minimum = Math.min(...prices);
-      const range = Math.max(maximum - minimum, 0.000001);
-      const left = 52;
-      const right = 14;
-      const top = 18;
-      const priceBottom = 270;
-      const volumeTop = 292;
-      const volumeBottom = 334;
-      const chartWidth = width - left - right;
-      const slot = chartWidth / Math.max(valid.length, 1);
-      const bodyWidth = Math.max(2, Math.min(13, slot * 0.62));
-      const y = (price: number) => top + ((maximum - price) / range) * (priceBottom - top);
-      const volumes = valid.map((candle) => candle.volume ?? 0);
-      const maximumVolume = Math.max(...volumes, 1);
-
+      context.fillStyle = "#fbfdff";
+      context.fillRect(0, 0, width, height);
       context.font = "10px ui-monospace, monospace";
       context.lineWidth = 1;
+
       for (let index = 0; index <= 4; index += 1) {
         const gridY = top + ((priceBottom - top) * index) / 4;
-        const label = maximum - (range * index) / 4;
+        const label = chartMetrics.maximum - (chartMetrics.range * index) / 4;
         context.strokeStyle = "#e5eaf2";
         context.beginPath();
         context.moveTo(left, gridY);
@@ -645,8 +717,8 @@ function CandleChart({ candles }: { candles: Candle[] }) {
       context.fillStyle = "#8190a5";
       context.fillText("volume", left, volumeBottom + 18);
 
-      valid.forEach((candle, index) => {
-        const center = left + slot * index + slot / 2;
+      visible.forEach((candle, index) => {
+        const center = x(viewWindow.start + index);
         const open = candle.open ?? candle.close ?? 0;
         const close = candle.close ?? open;
         const high = candle.high ?? Math.max(open, close);
@@ -662,23 +734,27 @@ function CandleChart({ candles }: { candles: Candle[] }) {
         const bodyTop = Math.min(y(open), y(close));
         const bodyHeight = Math.max(1, Math.abs(y(open) - y(close)));
         context.fillRect(center - bodyWidth / 2, bodyTop, bodyWidth, bodyHeight);
-        const volumeHeight = ((candle.volume ?? 0) / maximumVolume) * (volumeBottom - volumeTop);
-        context.globalAlpha = 0.42;
-        context.fillRect(center - bodyWidth / 2, volumeBottom - volumeHeight, bodyWidth, volumeHeight);
-        context.globalAlpha = 1;
+        if (indicatorVisibility.volume) {
+          const volumeHeight = ((candle.volume ?? 0) / maximumVolume) * (volumeBottom - volumeTop);
+          context.globalAlpha = 0.32;
+          context.fillRect(center - bodyWidth / 2, volumeBottom - volumeHeight, bodyWidth, volumeHeight);
+          context.globalAlpha = 1;
+        }
       });
-      function drawIndicator(key: "sma_20" | "sma_50" | "sma_200", color: string) {
+
+      function drawIndicator(key: Exclude<IndicatorKey, "volume">, color: string) {
+        if (!indicatorVisibility[key]) return;
         context.strokeStyle = color;
         context.lineWidth = 1.4;
         context.beginPath();
         let started = false;
-        valid.forEach((candle, index) => {
+        visible.forEach((candle, index) => {
           const indicator = candle[key];
           if (indicator == null) {
             started = false;
             return;
           }
-          const center = left + slot * index + slot / 2;
+          const center = x(viewWindow.start + index);
           if (started) context.lineTo(center, y(indicator));
           else context.moveTo(center, y(indicator));
           started = true;
@@ -688,20 +764,179 @@ function CandleChart({ candles }: { candles: Candle[] }) {
       drawIndicator("sma_20", "#3267f3");
       drawIndicator("sma_50", "#7a5cf0");
       drawIndicator("sma_200", "#e68a3e");
+
+      context.save();
+      context.beginPath();
+      context.rect(left, top, chartWidth, priceBottom - top);
+      context.clip();
+      drawings.concat(draftDrawing ? [draftDrawing] : []).forEach((drawing) => {
+        const startX = x(drawing.startIndex);
+        const startY = y(drawing.startPrice);
+        context.strokeStyle = drawing.type === "horizontal" ? "#3267f3" : drawing.type === "trend" ? "#7a5cf0" : "#e68a3e";
+        context.fillStyle = context.strokeStyle;
+        context.lineWidth = drawing.type === "marker" ? 2 : 1.4;
+        if (drawing.type === "horizontal") {
+          context.setLineDash([5, 4]);
+          context.beginPath();
+          context.moveTo(left, startY);
+          context.lineTo(width - right, startY);
+          context.stroke();
+          context.setLineDash([]);
+        } else if (drawing.type === "trend" && drawing.endIndex != null && drawing.endPrice != null) {
+          context.beginPath();
+          context.moveTo(startX, startY);
+          context.lineTo(x(drawing.endIndex), y(drawing.endPrice));
+          context.stroke();
+        } else if (drawing.type === "marker") {
+          context.beginPath();
+          context.arc(startX, startY, 4, 0, Math.PI * 2);
+          context.fill();
+          context.strokeStyle = "#fff";
+          context.lineWidth = 1;
+          context.stroke();
+        }
+      });
+      context.restore();
+
+      if (hover && hover.index >= viewWindow.start && hover.index < viewWindow.end) {
+        const hoverX = x(hover.index);
+        context.strokeStyle = "#8a98aa";
+        context.setLineDash([3, 3]);
+        context.beginPath();
+        context.moveTo(hoverX, top);
+        context.lineTo(hoverX, volumeBottom);
+        context.moveTo(left, hover.y);
+        context.lineTo(width - right, hover.y);
+        context.stroke();
+        context.setLineDash([]);
+      }
+
       context.fillStyle = "#8190a5";
-      const labelIndexes = [0, Math.floor((valid.length - 1) / 2), valid.length - 1];
+      const labelIndexes = [0, Math.floor((visible.length - 1) / 2), visible.length - 1];
       labelIndexes.forEach((index) => {
-        const center = left + slot * index + slot / 2;
-        context.fillText(valid[index].session, Math.max(left, center - 30), height - 8);
+        context.fillText(visible[index].session, Math.max(left, x(viewWindow.start + index) - 30), height - 8);
       });
     }
 
     draw();
     window.addEventListener("resize", draw);
     return () => window.removeEventListener("resize", draw);
-  }, [candles]);
+  }, [chartMetrics, drawings, draftDrawing, hover, indicatorVisibility, valid, viewWindow, visible]);
 
-  return <canvas ref={canvasRef} className="candle-canvas" aria-label="Candles OHLC e volume" />;
+  function chartPoint(clientX: number, clientY: number) {
+    const canvas = canvasRef.current;
+    if (!canvas || !visible.length) return null;
+    const rect = canvas.getBoundingClientRect();
+    const width = Math.max(320, rect.width);
+    const left = 60;
+    const right = 14;
+    const top = 18;
+    const priceBottom = 258;
+    const chartWidth = Math.max(120, width - left - right);
+    const slot = chartWidth / visible.length;
+    const xPosition = Math.max(left, Math.min(width - right, clientX - rect.left));
+    const yPosition = Math.max(top, Math.min(priceBottom, clientY - rect.top));
+    const localIndex = Math.max(0, Math.min(visible.length - 1, Math.floor((xPosition - left) / slot)));
+    const price = chartMetrics.maximum - ((yPosition - top) / (priceBottom - top)) * chartMetrics.range;
+    return { x: xPosition, y: yPosition, index: viewWindow.start + localIndex, price };
+  }
+
+  function nextDrawing(drawing: Omit<ChartDrawing, "id">): ChartDrawing {
+    if (drawingIdRef.current == null) drawingIdRef.current = Date.now();
+    drawingIdRef.current += 1;
+    return { ...drawing, id: drawingIdRef.current };
+  }
+
+  function handlePointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
+    const point = chartPoint(event.clientX, event.clientY);
+    if (!point) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    setHover({ index: point.index, x: point.x, y: point.y });
+    if (tool === "pan") {
+      dragRef.current = { startX: point.x, start: viewWindow.start, end: viewWindow.end };
+    } else if (tool === "horizontal") {
+      setDrawings((current) => [...current, nextDrawing({ type: "horizontal", startIndex: point.index, startPrice: point.price })]);
+      setTool("crosshair");
+    } else if (tool === "marker") {
+      setDrawings((current) => [...current, nextDrawing({ type: "marker", startIndex: point.index, startPrice: point.price })]);
+      setTool("crosshair");
+    } else if (tool === "trend") {
+      setDraftDrawing(nextDrawing({ type: "trend", startIndex: point.index, startPrice: point.price }));
+    }
+  }
+
+  function handlePointerMove(event: ReactPointerEvent<HTMLCanvasElement>) {
+    const point = chartPoint(event.clientX, event.clientY);
+    if (!point) return;
+    setHover({ index: point.index, x: point.x, y: point.y });
+    if (dragRef.current) {
+      const current = dragRef.current;
+      const count = current.end - current.start;
+      const shift = Math.round(((current.startX - point.x) / Math.max(120, event.currentTarget.getBoundingClientRect().width - 74)) * count);
+      const start = Math.max(0, Math.min(valid.length - count, current.start + shift));
+      setView({ start, end: start + count });
+    }
+    if (draftDrawing?.type === "trend") {
+      setDraftDrawing({ ...draftDrawing, endIndex: point.index, endPrice: point.price });
+    }
+  }
+
+  function handlePointerUp(event: ReactPointerEvent<HTMLCanvasElement>) {
+    const point = chartPoint(event.clientX, event.clientY);
+    dragRef.current = null;
+    if (draftDrawing?.type === "trend" && point) {
+      setDrawings((current) => [...current, { ...draftDrawing, endIndex: point.index, endPrice: point.price }]);
+      setDraftDrawing(null);
+      setTool("crosshair");
+    }
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
+  function handleWheel(event: ReactWheelEvent<HTMLCanvasElement>) {
+    if (!visible.length || valid.length <= 24) return;
+    event.preventDefault();
+    const point = chartPoint(event.clientX, event.clientY);
+    if (!point) return;
+    const currentCount = viewWindow.end - viewWindow.start;
+    const step = Math.max(4, Math.round(currentCount * 0.18));
+    const nextCount = Math.max(24, Math.min(valid.length, currentCount + (event.deltaY > 0 ? step : -step)));
+    const rect = event.currentTarget.getBoundingClientRect();
+    const chartWidth = Math.max(120, rect.width - 74);
+    const ratio = Math.max(0, Math.min(1, (point.x - 60) / chartWidth));
+    const anchor = viewWindow.start + Math.floor(ratio * currentCount);
+    const start = Math.max(0, Math.min(valid.length - nextCount, anchor - Math.floor(ratio * nextCount)));
+    setView({ start, end: start + nextCount });
+    setHover(null);
+  }
+
+  function resetView() {
+    const count = Math.min(90, valid.length);
+    setView({ start: Math.max(0, valid.length - count), end: valid.length });
+    setHover(null);
+  }
+
+  const activeCandle = hover ? valid[hover.index] : null;
+  const toolLabels: Array<[ChartTool, string]> = [["crosshair", "Cursor"], ["pan", "Mover"], ["horizontal", "Nível"], ["trend", "Linha"], ["marker", "Marcar"]];
+
+  return (
+    <div className="interactive-chart-shell">
+      <div className="chart-toolbar" role="toolbar" aria-label="Ferramentas do gráfico">
+        <div className="chart-tool-group">{toolLabels.map(([value, label]) => <button key={value} type="button" className={`chart-tool-button ${tool === value ? "active" : ""}`} onClick={() => setTool(value)} title={value === "crosshair" ? "Mover o cursor e inspecionar uma barra" : value === "pan" ? "Arrastar para navegar no histórico" : value === "horizontal" ? "Adicionar um nível horizontal" : value === "trend" ? "Desenhar uma linha de tendência" : "Adicionar um marcador"}>{label}</button>)}</div>
+        <span className="chart-toolbar-divider" />
+        <div className="chart-indicator-group" aria-label="Indicadores visíveis">
+          {(["sma_20", "sma_50", "sma_200", "volume"] as IndicatorKey[]).map((key) => <button key={key} type="button" className={`chart-indicator-button indicator-${key} ${indicatorVisibility[key] ? "active" : ""}`} onClick={() => setIndicatorVisibility((current) => ({ ...current, [key]: !current[key] }))}>{key === "volume" ? "VOL" : key.replace("sma_", "SMA ")}</button>)}
+        </div>
+        <button type="button" className="chart-tool-button" onClick={resetView}>Ajustar</button>
+        <button type="button" className="chart-tool-button" onClick={() => setDrawings((current) => current.slice(0, -1))} disabled={!drawings.length}>Desfazer</button>
+        <button type="button" className="chart-tool-button chart-clear-button" onClick={() => setDrawings([])} disabled={!drawings.length}>Limpar</button>
+      </div>
+      <div className={`chart-stage chart-stage-${tool}`}>
+        <canvas ref={canvasRef} className="candle-canvas" aria-label={`Gráfico interativo de candles ${symbol}`} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={() => { if (!dragRef.current) setHover(null); }} onWheel={handleWheel} onDoubleClick={resetView} />
+        {activeCandle && hover ? <div className="chart-tooltip" style={{ left: `${Math.min(Math.max(hover.x + 14, 10), 260)}px`, top: `${Math.min(Math.max(hover.y + 12, 10), 245)}px` }}><div className="chart-tooltip-heading"><strong>{activeCandle.session}</strong><span>{activeCandle.is_complete === false ? "aberta" : "encerrada"}</span></div><div className="chart-tooltip-grid"><span>O <b>{formatPrice(activeCandle.open)}</b></span><span>H <b>{formatPrice(activeCandle.high)}</b></span><span>L <b>{formatPrice(activeCandle.low)}</b></span><span>C <b>{formatPrice(activeCandle.close)}</b></span><span>VOL <b>{activeCandle.volume == null ? "—" : Math.round(activeCandle.volume).toLocaleString("en-US")}</b></span><span>Δ <b>{activeCandle.close != null && activeCandle.open != null ? formatSignedPercent((activeCandle.close - activeCandle.open) / activeCandle.open) : "—"}</b></span></div></div> : null}
+      </div>
+      <div className="chart-footer"><span>Roda: zoom · arraste com <strong>Mover</strong> · clique para marcar · duplo clique para ajustar</span><span>{viewWindow.start + 1}–{viewWindow.end} de {valid.length} barras</span></div>
+    </div>
+  );
 }
 
 function PortfolioChart({ equity }: { equity: PortfolioEquityPoint[] }) {
@@ -1373,7 +1608,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
               <article className="panel candle-panel">
                 <div className="panel-heading"><div><div className="panel-kicker">OHLCV / {market.timeframe}</div><h2>{market.symbol} — candle chart</h2></div><span className="source-pill">{market.returned_row_count} de {market.available_row_count} barras</span></div>
                 <div className="chart-legend"><span><i className="legend-up" /> alta</span><span><i className="legend-down" /> baixa</span><span><i className="legend-sma20" /> SMA20</span><span><i className="legend-sma50" /> SMA50</span><span><i className="legend-sma200" /> SMA200</span><span>corpo + sombra + volume</span></div>
-                <CandleChart candles={market.candles} />
+                <CandleChart candles={market.candles} symbol={market.symbol} />
                 <div className="chart-footnote">Os horários do gráfico são eventos em UTC convertidos a partir da sessão regular. A barra final é marcada como encerrada pelo manifesto histórico.</div>
               </article>
               <article className="panel source-panel">

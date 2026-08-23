@@ -101,6 +101,11 @@ test("keeps site assets inside the app source", async () => {
   assert.match(client, /public-shell/);
   assert.match(client, /Online workspace/);
   assert.match(client, /Offline research/);
+  assert.match(client, /interactive-chart-shell/);
+  assert.match(client, /onWheel/);
+  assert.match(client, /localStorage/);
+  assert.match(client, /Linha/);
+  assert.match(client, /Desfazer/);
   assert.match(layout, /lang="pt-BR"/);
   await assert.rejects(access(new URL("public/_sites-preview", templateRoot)));
 });

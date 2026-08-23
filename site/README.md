@@ -67,6 +67,13 @@ servidor local e mostra candles completos, volume, SMA20/SMA50/SMA200, ATR14,
 qualidade, origem, versão, horários e hashes. A resposta informa
 `realtime_active=false` porque o snapshot histórico não é um feed ao vivo.
 
+O gráfico do workspace privado é interativo: o cursor mostra OHLCV da barra,
+a roda do mouse aproxima ou afasta o histórico, **Mover** permite navegar pelas
+barras, e **Nível**, **Linha** e **Marcar** permitem anotações visuais. SMA20,
+SMA50, SMA200 e volume podem ser ligados ou desligados. As marcações ficam
+somente no armazenamento local do navegador e não alteram o dataset, o
+backtest ou qualquer ordem.
+
 Endpoints usados pelo navegador:
 
 ```text

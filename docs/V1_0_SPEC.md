@@ -47,6 +47,8 @@ promovida automaticamente e nenhum botão de research envia ordem.
   instalado apenas no ambiente privado do proprietário.
 - Diagnóstico de duplicidade, ordem, OHLC, completude, idade do dado e
   timestamps de evento/recepção.
+- Workspace de candles interativo com crosshair/inspeção OHLCV, zoom, navegação,
+  indicadores alternáveis e anotações locais de nível, linha e marcador.
 - `realtime_active=false` e `latency_ms=null` quando a fonte não fornece um
   feed ao vivo ou relógios suficientes.
 - GitHub público sem snapshots, artefatos, credenciais ou caminho de broker.
