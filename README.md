@@ -1,24 +1,45 @@
-# TradingLAB V0.1
+# TradingLAB
+
+TradingLAB is a research-first quantitative trading workspace. Its canonical
+Python laboratory remains local, reproducible and independent of brokers. The
+same repository now includes a separately gated owner-only Alpaca Paper
+monitor for real quotes, candles, account state, positions and orders. Live
+trading, custody, deposits, payments and automatic strategy promotion are not
+implemented.
+
+The public web surface is a presentation landing page. After authentication,
+the application separates the online workspace from offline research. The
+owner-only Paper bridge keeps credentials on the server and defaults to
+read-only monitoring; new Paper orders require explicit safety flags and a
+kill-switch release.
+
+The current integration boundary is documented in
+[`docs/ALPACA_PAPER_BRIDGE.md`](docs/ALPACA_PAPER_BRIDGE.md). Direct
+credentials are never committed or sent to browser clients.
+
+Historical V0.1 research details follow.
 
 TradingLAB is a small, auditable, reproducible local laboratory for causal
 daily-bar quantitative research. It formalizes four fixed controls/strategies,
 preserves immutable market-data snapshots and trial artifacts, and evaluates
 predeclared temporal, cross-asset, parameter, and execution-friction tests.
 
-It is not a trading bot, recommendation system, broker integration, paper
-trader, machine-learning system, or production platform.
+The research core is not a trading bot, recommendation system, or live
+trading platform. The optional Paper monitor is an integration surface for
+owner-controlled testing, not evidence of profitability or readiness for real
+capital.
 
 ## Safety boundary
 
 ```text
-LIVE TRADING = IMPOSSIBLE
+LIVE TRADING = ABSENT
 REAL MONEY = 0
-BROKER ORDER SUBMISSION = ABSENT
+PAPER ORDER SUBMISSION = DISABLED BY DEFAULT
 ```
 
-The strongest guarantee is structural: **broker execution code does not
-exist**. No broker SDK, client, credential handling, paper/live environment, or
-order-submission network path belongs in V0.1.
+The research core has no broker dependency. The separate Paper bridge uses
+server-side direct API calls, is owner-gated, forces the Paper/IEX domains, and
+has no live path.
 
 ## Core contract
 
@@ -108,9 +129,9 @@ in this same repository:
   validated five-ETF snapshot for Development or Validation OOS. It does not
   optimize, access the Project Holdout, or trade.
 
-An actual Alpaca account, MT5 terminal, external alert delivery, or order
-submission remains a human-gated future integration and is intentionally absent
-from the repository.
+The owner-only Alpaca Paper monitor is now a bounded integration. MT5,
+external alert delivery, live trading, custody, payments and production
+capital remain outside the product.
 
 ## V1.0 research operational
 

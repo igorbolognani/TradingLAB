@@ -1,8 +1,9 @@
 # TradingLAB Research Control Room
 
-Interface local-first para visualizar os resultados do laboratório, filtrar
-estratégia/ativo/período, carregar `all_trials.csv` ou JSON e preparar uma
-execução reprodutível. O site não contém dados Yahoo, não executa ordens e não
+Interface local-first para visualizar resultados, candles e controles do
+TradingLAB. O site mantém o research offline separado do workspace online e
+possui uma ponte Alpaca Paper opcional, privada e bloqueada por padrão. O
+site não contém dados Yahoo distribuídos, não oferece live trading e não
 substitui os contratos Python.
 
 ## Camadas de acesso
@@ -14,15 +15,18 @@ Depois do login nativo **Entrar com ChatGPT**, a pessoa entra no aplicativo e
 recebe o dashboard, a navegação e as ferramentas correspondentes à sua
 permissão.
 
-No servidor, a conta do proprietário é comparada com o segredo de ambiente
-`TRADINGLAB_OWNER_USER_ID` configurado no Sites. Somente essa identidade recebe
-as páginas **Market data** e **Portfolio replay**, que dependem do snapshot
-local e da API em `127.0.0.1`. Outras contas autenticadas entram no dashboard e
-recebem Experiments e Data & provenance, mas não recebem a camada privada de
-dados e portfólio. A barra lateral do aplicativo é dividida em **Online
-workspace** e **Offline research**. O código não adiciona OAuth externo;
-um novo provedor só deve entrar depois de uma decisão explícita sobre
-identidade, consentimento e credenciais.
+No servidor, a conta do proprietário é comparada com `TRADINGLAB_OWNER_EMAIL`
+ou `TRADINGLAB_OWNER_USER_ID`. Somente essa identidade recebe as páginas
+**Market data**, **Portfolio replay** e **Paper monitor**. Visitantes públicos
+e outras contas autenticadas não recebem a camada privada de dados, conta,
+posições ou ordens. A barra lateral do aplicativo é dividida em **Online
+workspace** e **Offline research**.
+
+O Paper monitor consulta a Alpaca no servidor: o navegador recebe apenas
+valores normalizados, estado, origem, idade dos dados e reconciliação. A chave
+nunca é enviada ao celular ou ao computador do visitante. O OAuth Alpaca
+continua separado, com escopo de dados e aprovação Connect pendente; ele não é
+uma autorização implícita para enviar ordens.
 
 ## Usar
 
@@ -40,8 +44,11 @@ na raiz do repositório execute:
 uv run tradinglab-dashboard
 ```
 
-O site hospedado é uma camada de leitura privada; o motor de pesquisa e seus
-artefatos continuam no checkout local.
+O site hospedado é público na apresentação e privado por identidade nas
+rotas de dados/execução; o motor de pesquisa e seus artefatos continuam no
+checkout local. Para o Paper monitor funcionar no site publicado, as variáveis
+secretas precisam ser configuradas no ambiente de produção do Sites. O
+`.env.local` serve apenas ao desenvolvimento local.
 
 Quando o site privado hospedado for aberto no mesmo computador do checkout,
 inicie `uv run tradinglab-dashboard` localmente para que o navegador possa
@@ -58,7 +65,8 @@ uv run tradinglab-dashboard --candle-file /caminho/feed-licenciado.csv
 
 Também é possível usar **Importar CSV** na tela Market data. Nesse modo o
 arquivo permanece no navegador. A interface mostra `realtime_active=false`
-até que um adaptador live licenciado seja implementado.
+para o snapshot histórico; o Paper monitor identifica separadamente o
+transporte real da Alpaca e não mistura os dois datasets.
 
 ## Market data local
 
@@ -84,6 +92,32 @@ GET /api/candles?dataset_id=<id>&symbol=SPY&limit=240
 
 Não há números demonstrativos no estado inicial. Sem um snapshot real e
 validado, a tela permanece vazia.
+
+## Alpaca Paper monitor
+
+O **Paper monitor**, visível somente ao proprietário, fornece:
+
+- status da conta, equity, cash e buying power;
+- cotações IEX com origem, horário do evento, horário de recebimento,
+  transporte, latência medida e idade do dado;
+- candles OHLCV reais da Alpaca e cálculos básicos;
+- posições atuais e ordens abertas;
+- IDs do broker e uma visão de reconciliação;
+- cancelamento de uma ordem ou de todas as ordens abertas;
+- formulário de ordem Paper protegido por allowlist, quantidade inteira,
+  limite financeiro, cotação recente, venda long-only e kill switch.
+
+O envio de novas ordens permanece desativado por padrão:
+
+```text
+TRADINGLAB_EXECUTION_ENABLED=false
+TRADINGLAB_PAPER_ENABLED=false
+TRADINGLAB_KILL_SWITCH=true
+```
+
+Mesmo quando esses três controles forem liberados conscientemente, o backend
+continua sem endpoint live. O contrato completo está em
+`docs/ALPACA_PAPER_BRIDGE.md`.
 
 ## Portfolio V0.6
 

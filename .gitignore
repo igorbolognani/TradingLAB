@@ -39,6 +39,14 @@ site/npm-debug.log*
 !site/build/
 !site/build/**
 
+# Local application credentials. Only the non-secret template is tracked.
+.env
+.env.*
+!.env.example
+site/.env
+site/.env.*
+!site/.env.example
+
 # Local plot/browser noise.
 *.html
 .DS_Store

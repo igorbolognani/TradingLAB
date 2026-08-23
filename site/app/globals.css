@@ -442,3 +442,41 @@ td strong { color: var(--ink); font-size: 10px; }
   .chart-workspace-card { padding: 13px; }
   .chart-market-summary > div { padding-inline: 5px; }
 }
+
+/* Private Alpaca Paper control room. Credentials never enter this UI. */
+.paper-control-page { gap: 16px; }
+.paper-status-grid, .paper-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.paper-status-list, .account-metric-grid, .quote-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; margin-top: 17px; }
+.paper-status-list > span, .account-metric-grid > div, .quote-grid > div { display: grid; gap: 6px; border-left: 2px solid #e1eaf4; padding-left: 9px; }
+.paper-status-list span, .account-metric-grid span, .quote-grid span { color: var(--ink-faint); font-size: 8px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+.paper-status-list strong, .account-metric-grid strong, .quote-grid strong { color: var(--ink); font: 12px var(--font-geist-mono), monospace; }
+.paper-status-list strong { font-size: 10px; text-transform: uppercase; }
+.account-metric-grid strong { font-size: 15px; }
+.quote-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 20px; }
+.quote-grid small { color: var(--ink-faint); font: 9px var(--font-geist-mono), monospace; }
+.paper-controls, .paper-order-form { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; margin-top: 17px; border-top: 1px solid #edf1f6; padding-top: 15px; }
+.paper-controls label, .paper-order-form label { display: grid; min-width: 115px; flex: 1 1 115px; gap: 5px; color: var(--ink-faint); font-size: 8px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+.paper-controls select, .paper-order-form select, .paper-order-form input { width: 100%; border: 1px solid var(--line); border-radius: 6px; outline: 0; background: var(--surface); color: var(--ink); padding: 9px; font-size: 10px; }
+.paper-controls select:focus, .paper-order-form select:focus, .paper-order-form input:focus { border-color: #9cb5f7; box-shadow: 0 0 0 3px rgb(50 103 243 / 10%); }
+.paper-controls .button, .paper-order-form .button { min-height: 36px; }
+.paper-empty { display: grid; min-height: 86px; place-items: center; border: 1px dashed #d7e1ee; border-radius: 8px; color: var(--ink-faint); font-size: 10px; text-align: center; }
+.paper-order-list { display: grid; gap: 8px; margin-top: 15px; }
+.paper-order-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #e2e9f2; border-radius: 8px; background: #fbfdff; padding: 10px; }
+.paper-order-row > div { display: grid; min-width: 0; gap: 4px; }
+.paper-order-row strong { color: var(--ink); font-size: 11px; }
+.paper-order-row small { overflow-wrap: anywhere; color: var(--ink-faint); font: 8px var(--font-geist-mono), monospace; }
+.paper-order-panel { border-color: #d9e4f4; background: linear-gradient(145deg, #fff, #f8fbff); }
+.paper-order-form .button { flex: 1 1 190px; }
+.paper-control-page .table-wrap { margin-top: 16px; }
+
+@media (max-width: 760px) {
+  .paper-status-grid, .paper-grid { grid-template-columns: 1fr; }
+  .paper-status-list, .account-metric-grid, .quote-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .quote-grid > div:last-child { grid-column: 1 / -1; }
+  .paper-controls, .paper-order-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: end; }
+  .paper-controls label, .paper-order-form label { min-width: 0; }
+  .paper-controls .button, .paper-order-form .button { width: 100%; }
+  .paper-controls .button, .paper-order-form .button:last-child { grid-column: 1 / -1; }
+  .paper-order-row { align-items: flex-start; }
+  .paper-order-row .button { flex: 0 0 auto; }
+}

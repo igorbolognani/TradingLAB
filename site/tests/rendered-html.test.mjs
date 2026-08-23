@@ -97,6 +97,8 @@ test("keeps site assets inside the app source", async () => {
   assert.match(client, /realtime_active/);
   assert.match(client, /latency_ms/);
   assert.match(client, /V1\.0/);
+  assert.match(client, /Paper monitor/);
+  assert.match(client, /api\/alpaca\/direct\/status/);
   assert.match(client, /Candles completos/);
   assert.match(client, /Project Holdout/);
   assert.match(client, /public-shell/);
@@ -110,6 +112,12 @@ test("keeps site assets inside the app source", async () => {
   assert.match(client, /localStorage/);
   assert.match(client, /Linha/);
   assert.match(client, /Desfazer/);
+  const paper = await readFile(new URL("../app/paper-control.tsx", import.meta.url), "utf8");
+  assert.match(paper, /data_age_seconds/);
+  assert.match(paper, /Paper conectado/);
+  assert.match(paper, /Cancelar todas/);
+  assert.match(paper, /kill_switch/);
+  assert.match(paper, /setInterval\(\(\) => void refresh\(\), 15000\)/);
   assert.match(layout, /lang="pt-BR"/);
   await assert.rejects(access(new URL("public/_sites-preview", templateRoot)));
 });

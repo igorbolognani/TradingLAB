@@ -3,8 +3,9 @@
 import type { ChangeEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import PaperControl from "./paper-control";
 
-type ViewId = "landing" | "overview" | "market" | "experiments" | "portfolio" | "provenance";
+type ViewId = "landing" | "overview" | "paper" | "market" | "experiments" | "portfolio" | "provenance";
 
 type ResearchLabProps = {
   isOwner: boolean;
@@ -1068,13 +1069,13 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
   useEffect(() => {
     if (!isOwner) return;
     let active = true;
-    fetch("/api/alpaca/status", { cache: "no-store" })
+    fetch("/api/alpaca/direct/status", { cache: "no-store" })
       .then(async (response) => {
         if (!response.ok) throw new Error("status unavailable");
-        return (await response.json()) as { connected?: boolean };
+        return (await response.json()) as { configured?: boolean };
       })
       .then((payload) => {
-        if (active) setAlpacaConnection(payload.connected ? "connected" : "disconnected");
+        if (active) setAlpacaConnection(payload.configured ? "connected" : "disconnected");
       })
       .catch(() => {
         if (active) setAlpacaConnection("disconnected");
@@ -1537,9 +1538,9 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
                 ? "Abra candles completos do snapshot local e rode um replay de portfólio com dinheiro simulado. A execução externa continua desligada."
                 : "Veja o dashboard e os contratos de pesquisa. Dados locais, candles privados e controles do proprietário não são carregados para outras contas."}
             </p>
-            <div className="workspace-badges"><span>ORDENS DESATIVADAS</span><span>{isOwner ? "DADOS LOCAIS" : "ACESSO PÚBLICO"}</span>{isOwner ? <span>{alpacaConnection === "connected" ? "ALPACA PAPER · LEITURA" : "ALPACA OAUTH PENDENTE"}</span> : null}</div>
+            <div className="workspace-badges"><span>ORDENS DESATIVADAS</span><span>{isOwner ? "DADOS PRIVADOS" : "ACESSO PÚBLICO"}</span>{isOwner ? <span>{alpacaConnection === "connected" ? "ALPACA PAPER · LEITURA" : "ALPACA PAPER PENDENTE"}</span> : null}</div>
             <div className="workspace-actions">
-              {isOwner ? <><button className="button button-outline" onClick={() => setActiveView("market")}>Abrir Market data</button><button className="button button-outline" onClick={() => setActiveView("portfolio")}>Abrir Portfolio</button><a className="button button-primary" href="/alpaca/connect">{alpacaConnection === "connected" ? "Reconectar Alpaca Paper" : "Conectar Alpaca Paper"}</a></> : <span className="small-muted">Faça login como proprietário para a camada privada.</span>}
+              {isOwner ? <><button className="button button-outline" onClick={() => setActiveView("paper")}>Abrir Paper monitor</button><button className="button button-outline" onClick={() => setActiveView("market")}>Abrir Market data</button><button className="button button-outline" onClick={() => setActiveView("portfolio")}>Abrir Portfolio</button><a className="button button-primary" href="/alpaca/connect">Configurar OAuth</a></> : <span className="small-muted">Faça login como proprietário para a camada privada.</span>}
             </div>
           </article>
           <article className="panel workspace-mode-card workspace-research-card">
@@ -1839,14 +1840,14 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
         <div className="page-heading"><div><div className="eyebrow">Data & provenance</div><h1>A evidência começa no que pode ser refeito.</h1></div><span className="source-pill">local-first</span></div>
         <div className="provenance-grid">
           <article className="panel provenance-main"><div className="panel-kicker">Data contract</div><h2>O que esta interface aceita</h2><div className="contract-list"><div><span className="contract-key">RAW</span><p>Dados do provedor preservados separadamente; não são embutidos no site público.</p></div><div><span className="contract-key">ACTIONS</span><p>Ações corporativas permanecem auditáveis e não são recarregadas como um detalhe invisível.</p></div><div><span className="contract-key">NORMALIZED</span><p>O painel aceita <code>all_trials.csv</code> ou JSON exportado e calcula o resumo no navegador.</p></div><div><span className="contract-key">HASH</span><p>Dataset, manifesto, commit e lockfile continuam sendo a autoridade; o painel é uma camada de leitura.</p></div></div></article>
-          <article className="panel safety-panel"><div className="safety-mark">0</div><div className="panel-kicker">Safety boundary</div><h2>Research only</h2><p>Não existe no site SDK de broker, credencial, endpoint de ordem, paper trading, live trading ou promoção automática.</p><div className="safety-tags"><span>NO BROKER</span><span>NO CAPITAL</span><span>NO AUTO-PROMOTION</span></div></article>
+          <article className="panel safety-panel"><div className="safety-mark">0</div><div className="panel-kicker">Safety boundary</div><h2>Paper privado, live bloqueado</h2><p>A camada direta usa somente a conta Paper do proprietário, com credenciais server-side, allowlist, limites pequenos, reconciliação e kill switch. Live trading continua inexistente.</p><div className="safety-tags"><span>PAPER OWNER ONLY</span><span>LIVE OFF</span><span>KILL SWITCH</span></div></article>
         </div>
-        <article className="panel provenance-table"><div className="panel-heading"><div><div className="panel-kicker">Evidence status</div><h2>Mapa de entregas</h2></div></div><div className="status-table"><div><strong>V0.1</strong><span className="status-complete">COMPLETA</span><p>Backtest causal, registry append-only, holdout controlado.</p></div><div><strong>V0.2</strong><span className="status-complete">REPRODUZIDA</span><p>60/60 configurações primárias no gate independente.</p></div><div><strong>V0.3–V0.5</strong><span className="status-bridge">BRIDGES</span><p>Contratos e simuladores sem side effects externos.</p></div><div><strong>V0.6</strong><span className="status-current">OPERACIONAL</span><p>Replay real multiativo, caixa compartilhado e alocações declaradas.</p></div><div><strong>V1.0</strong><span className="status-current">RESEARCH</span><p>Interface privada, candles provider-neutral e BYOD auditável.</p></div></div></article>
+        <article className="panel provenance-table"><div className="panel-heading"><div><div className="panel-kicker">Evidence status</div><h2>Mapa de entregas</h2></div></div><div className="status-table"><div><strong>V0.1</strong><span className="status-complete">COMPLETA</span><p>Backtest causal, registry append-only, holdout controlado.</p></div><div><strong>V0.2</strong><span className="status-complete">REPRODUZIDA</span><p>60/60 configurações primárias no gate independente.</p></div><div><strong>V0.3</strong><span className="status-current">PAPER LOCAL</span><p>Conta, IEX, WebSocket, posições, ordens e cancelamento sob kill switch.</p></div><div><strong>V0.4–V0.6</strong><span className="status-bridge">EM EVOLUÇÃO</span><p>TradingView, Forex e portfólio continuam separados do executor Paper.</p></div><div><strong>V1.0</strong><span className="status-current">PRIVADA</span><p>Interface owner, dados reais server-side, mobile e proveniência.</p></div></div></article>
       </section>
     );
   }
 
-  const visibleActiveView: ViewId = !isOwner && (activeView === "market" || activeView === "portfolio") ? "overview" : activeView;
+  const visibleActiveView: ViewId = !isOwner && (activeView === "paper" || activeView === "market" || activeView === "portfolio") ? "overview" : activeView;
   function openCandleImporter() {
     if (candleFileInput.current) {
       candleFileInput.current.click();
@@ -1874,14 +1875,14 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
 
   const onlineNavigation: Array<[ViewId, string, string]> = [
     ["overview", "Home / dashboard", "◈"],
-    ...(isOwner ? [["market", "Market data", "▥"], ["portfolio", "Portfolio replay", "◒"]] as Array<[ViewId, string, string]> : []),
+    ...(isOwner ? [["paper", "Paper monitor", "◉"], ["market", "Market data", "▥"], ["portfolio", "Portfolio replay", "◒"]] as Array<[ViewId, string, string]> : []),
   ];
   const researchNavigation: Array<[ViewId, string, string]> = [
     ["experiments", "Experiments", "⌘"],
     ["provenance", "Data & provenance", "⌬"],
   ];
   const workspaceTabs = [...onlineNavigation, ...researchNavigation];
-  const viewContent = visibleActiveView === "overview" ? renderOverview() : visibleActiveView === "market" ? renderMarket() : visibleActiveView === "experiments" ? renderExperiments() : visibleActiveView === "portfolio" ? renderPortfolio() : renderProvenance();
+  const viewContent = visibleActiveView === "overview" ? renderOverview() : visibleActiveView === "paper" ? <PaperControl /> : visibleActiveView === "market" ? renderMarket() : visibleActiveView === "experiments" ? renderExperiments() : visibleActiveView === "portfolio" ? renderPortfolio() : renderProvenance();
 
   return (
     <main className="app-shell">
@@ -1892,7 +1893,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
         <div className="sidebar-section sidebar-bottom"><div className="sidebar-label">Access mode</div><div className="safety-status"><span className="status-dot" /><div><strong>{isOwner ? "Owner workspace" : "Public workspace"}</strong><small>{isOwner ? "online monitor + offline research" : "private data hidden"}</small></div></div><div className="version-box"><span>Current build</span><strong>V1.0 research</strong><small>live execution disabled</small></div></div>
       </aside>
       <div className="main-column">
-        <header className="topbar"><div className="mobile-brand"><AppMark /><strong>TradingLAB</strong></div><div className="breadcrumb"><span>TradingLAB</span><b>/</b><strong>{activeView === "overview" ? "Home / dashboard" : activeView === "market" ? "Market data" : activeView === "experiments" ? "Experiments" : activeView === "portfolio" ? "Portfolio replay" : "Data & provenance"}</strong></div><div className="topbar-right"><span className="sync-label"><span className="status-dot" /> {isOwner ? (localApiAvailable ? "Snapshot local conectado" : "Workspace privado") : "Public research"}</span>{viewer ? <><span className="viewer-label">{viewer.displayName}</span><a className="auth-link" href={signOutHref}>Sair</a></> : <a className="auth-link auth-link-primary" href={signInHref}>Entrar com ChatGPT</a>}</div></header>
+        <header className="topbar"><div className="mobile-brand"><AppMark /><strong>TradingLAB</strong></div><div className="breadcrumb"><span>TradingLAB</span><b>/</b><strong>{activeView === "overview" ? "Home / dashboard" : activeView === "paper" ? "Paper monitor" : activeView === "market" ? "Market data" : activeView === "experiments" ? "Experiments" : activeView === "portfolio" ? "Portfolio replay" : "Data & provenance"}</strong></div><div className="topbar-right"><span className="sync-label"><span className="status-dot" /> {isOwner ? (localApiAvailable ? "Snapshot local conectado" : "Workspace privado") : "Public research"}</span>{viewer ? <><span className="viewer-label">{viewer.displayName}</span><a className="auth-link" href={signOutHref}>Sair</a></> : <a className="auth-link auth-link-primary" href={signInHref}>Entrar com ChatGPT</a>}</div></header>
         <div className="content"><div className="workspace-tabbar"><nav aria-label="Abas do workspace">{workspaceTabs.map(([id, label, icon]) => <button className={visibleActiveView === id ? "workspace-tab active" : "workspace-tab"} onClick={() => setActiveView(id)} key={id}><span aria-hidden="true">{icon}</span>{label}</button>)}</nav><button className="button button-outline workspace-import-button" type="button" onClick={openCandleImporter}>Inserir candles</button></div><div className="filter-strip"><div className="filter-title"><span className="filter-icon">≡</span><strong>View filters</strong><span>{filteredRows.length} rows</span></div><div className="filter-control"><span className="filter-control-label">Strategy</span><select aria-label="Strategy" value={strategy} onChange={(event) => setStrategy(event.target.value)}><option value="ALL">All strategies</option>{STRATEGIES.map((item) => <option key={item} value={item}>{labelForStrategy(item)}</option>)}</select></div><div className="filter-control"><span className="filter-control-label">Asset</span><select aria-label="Asset" value={asset} onChange={(event) => setAsset(event.target.value)}><option value="ALL">All assets</option>{ASSETS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><div className="filter-control"><span className="filter-control-label">Split</span><select aria-label="Split" value={split} onChange={(event) => setSplit(event.target.value)}><option value="ALL">All splits</option>{SPLITS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><button className="reset-button" onClick={resetData}>Limpar dados</button></div>{viewContent}</div>
         <footer className="footer"><span>TradingLAB · Quant / Systematic Research Lab</span><span>Research first · evidence before execution</span></footer>
       </div>
