@@ -84,10 +84,12 @@ provenance before any MT5 Strategy Tester comparison.
 
 ## D-009 — V0.6 portfolio reference before acceleration
 
-**Status:** accepted for V0.6.
+**Status:** accepted and implemented for V0.6.
 
 The portfolio layer begins with a small independent reference replay using
 shared cash, aligned sessions, integer long-only positions, explicit
 sell-before-buy rebalances, equal-weight and inverse-volatility baselines. It
-does not add automatic optimization or make VectorBT authoritative. Any future
-accelerator must reproduce this contract before it is used for scale.
+now runs against the validated five-ETF snapshot through the local CLI, API and
+private interface for Development or Validation OOS. It does not add automatic
+optimization, access the Project Holdout, or make VectorBT authoritative. Any
+future accelerator must reproduce this contract before it is used for scale.

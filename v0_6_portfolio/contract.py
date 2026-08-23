@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from datetime import date
 from typing import Literal
@@ -21,7 +22,9 @@ class PortfolioBar:
     def validate(self) -> None:
         if not self.symbol:
             raise ValueError("portfolio bar symbol is required")
-        if self.open <= 0 or self.close <= 0:
+        if not all(
+            math.isfinite(value) and value > 0 for value in (self.open, self.close)
+        ):
             raise ValueError("portfolio prices must be positive")
 
 
@@ -57,6 +60,7 @@ class PortfolioPoint:
     gross_equity: float
     net_equity: float
     invested_symbols: tuple[str, ...]
+    positions: tuple[tuple[str, int], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -67,3 +71,4 @@ class PortfolioResult:
     fills: tuple[PortfolioFill, ...]
     equity: tuple[PortfolioPoint, ...]
     metrics: dict[str, float | int | None]
+    decisions: tuple[PortfolioDecision, ...] = ()

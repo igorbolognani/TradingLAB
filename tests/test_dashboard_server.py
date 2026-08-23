@@ -4,7 +4,11 @@ from pathlib import Path
 import pytest
 from conftest import StaticSource, raw_provider_frame
 
-from tradinglab.dashboard_server import candle_payload, validate_battery_request
+from tradinglab.dashboard_server import (
+    candle_payload,
+    validate_battery_request,
+    validate_portfolio_request,
+)
 from tradinglab.data import SnapshotStore
 from tradinglab.data_source import RetrievalRequest
 
@@ -51,6 +55,52 @@ def test_dashboard_api_rejects_path_like_dataset_ids() -> None:
                 "splits": ["development"],
             },
             ["../snapshots"],
+        )
+
+
+def test_v06_portfolio_request_is_explicit_and_holdout_free() -> None:
+    dataset_id = "ds_local_dataset_1"
+    assert validate_portfolio_request(
+        {
+            "confirmed": True,
+            "dataset_id": dataset_id,
+            "split": "validation_oos",
+            "allocation_method": "inverse_vol",
+            "friction_bps": 10,
+        },
+        [dataset_id],
+    ) == (dataset_id, "validation_oos", "inverse_vol", 10)
+    with pytest.raises(ValueError, match="Development and Validation"):
+        validate_portfolio_request(
+            {
+                "confirmed": True,
+                "dataset_id": dataset_id,
+                "split": "project_holdout",
+            },
+            [dataset_id],
+        )
+
+
+def test_v06_portfolio_request_rejects_parameter_mining() -> None:
+    with pytest.raises(ValueError, match="fixed parameter"):
+        validate_portfolio_request(
+            {
+                "confirmed": True,
+                "dataset_id": "ds_local_dataset_1",
+                "split": "development",
+                "sma_window": 150,
+            },
+            ["ds_local_dataset_1"],
+        )
+
+    with pytest.raises(ValueError, match="allocation method"):
+        validate_portfolio_request(
+            {
+                "confirmed": True,
+                "dataset_id": "ds_local_dataset_1",
+                "allocation_method": ["equal_weight"],
+            },
+            ["ds_local_dataset_1"],
         )
 
 

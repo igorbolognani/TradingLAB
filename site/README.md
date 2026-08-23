@@ -58,3 +58,16 @@ GET /api/candles?dataset_id=<id>&symbol=SPY&limit=240
 
 Não há números demonstrativos no estado inicial. Sem um snapshot real e
 validado, a tela permanece vazia.
+
+## Portfolio V0.6
+
+Na navegação **Portfolio**, o navegador pode chamar a API local e executar o
+replay de referência do V0.6 com o snapshot real validado. O usuário escolhe
+Development ou Validation OOS, uma das duas alocações declaradas (peso igual
+ou inverso da volatilidade) e uma fricção pré-definida de 0, 5, 10 ou 25 bps.
+
+O resultado mostra patrimônio líquido, CAGR, Sharpe, drawdown, custos,
+decisões de fechamento, fills no próximo open, posições finais e proveniência.
+O Holdout, otimização automática, paper trading, live trading e envio de
+ordens continuam bloqueados. Também é possível carregar no navegador o JSON
+produzido por `uv run tradinglab run-portfolio`.

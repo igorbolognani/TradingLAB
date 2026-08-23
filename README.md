@@ -103,8 +103,10 @@ in this same repository:
   alert parser; TradingView is not canonical.
 - `v0_5_forex/` contains an offline UTC EURUSD daily-bar contract, replay, and an
   indicator-only MT5 observer; it is separate from the XNYS ETF registry.
-- `v0_6_portfolio/` contains a shared-cash portfolio reference replay with
-  equal-weight and inverse-volatility baselines; it does not optimize or trade.
+- `v0_6_portfolio/` contains a shared-cash portfolio replay with equal-weight
+  and inverse-volatility baselines; the local API and CLI run it against the
+  validated five-ETF snapshot for Development or Validation OOS. It does not
+  optimize, access the Project Holdout, or trade.
 
 An actual Alpaca account, MT5 terminal, external alert delivery, or order
 submission remains a human-gated future integration and is intentionally absent
@@ -171,3 +173,23 @@ O endpoint identifica explicitamente o modo como `historical_snapshot` e
 tiver um fornecedor licenciado com feed ao vivo. A matriz de fornecedores,
 licenciamento, timestamps, alternativas BYOD e gates de segurança está em
 [`docs/DATA_PROVIDER_RESEARCH.md`](docs/DATA_PROVIDER_RESEARCH.md).
+
+### V0.6 portfolio replay
+
+The Portfolio screen now executes the declared V0.6 reference replay against
+the real, validated snapshot instead of showing a static allocation sketch:
+
+```bash
+uv run tradinglab run-portfolio \\
+  --dataset-id ds_20260818T142727647796Z_48e34b6b3110 \\
+  --split development \\
+  --allocation-method equal_weight \\
+  --friction-bps 5 \\
+  --output /tmp/tradinglab-v06-development.json
+```
+
+The result contains effective dates, decisions, next-open fills, equity curve,
+final positions, modeled costs, provenance and safety flags. The fixed V0.6
+parameters are SMA200, rebalance every 21 sessions, inverse-volatility
+lookback 20 and simulated initial cash of USD 100,000. The interface accepts
+only Development and Validation OOS; Project Holdout is intentionally rejected.

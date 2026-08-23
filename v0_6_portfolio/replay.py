@@ -49,6 +49,8 @@ def _volatility(
     end_index: int,
     lookback: int,
 ) -> float:
+    if end_index < 0:
+        return 1.0
     start = max(0, end_index - lookback + 1)
     closes = [bar.close for bar in bars[start : end_index + 1]]
     returns = [closes[index] / closes[index - 1] - 1 for index in range(1, len(closes))]
@@ -124,6 +126,8 @@ def replay_portfolio(
     initial_cash: float = 100_000.0,
     friction_bps: float = 5.0,
     volatility_lookback: int = 20,
+    evaluation_start: date | None = None,
+    evaluation_end: date | None = None,
 ) -> PortfolioResult:
     """Replay shared cash, integer shares, and next-open rebalances.
 
@@ -139,6 +143,24 @@ def replay_portfolio(
         raise ValueError("friction_bps must be finite and non-negative")
     if volatility_lookback < 2:
         raise ValueError("volatility_lookback must be at least two")
+    if (
+        evaluation_start is not None
+        and evaluation_end is not None
+        and evaluation_end < evaluation_start
+    ):
+        raise ValueError("evaluation_end must not precede evaluation_start")
+    start_index = 0
+    end_index = len(sessions) - 1
+    if evaluation_start is not None:
+        if evaluation_start not in sessions:
+            raise ValueError("evaluation_start is not an available portfolio session")
+        start_index = sessions.index(evaluation_start)
+    if evaluation_end is not None:
+        if evaluation_end not in sessions:
+            raise ValueError("evaluation_end is not an available portfolio session")
+        end_index = sessions.index(evaluation_end)
+    if start_index > end_index:
+        raise ValueError("evaluation window has no portfolio sessions")
     for decision in decisions:
         decision.validate()
         if not set(decision.target_symbols).issubset(symbols):
@@ -155,10 +177,13 @@ def replay_portfolio(
     fills: list[PortfolioFill] = []
     equity: list[PortfolioPoint] = []
     rate = friction_bps / 10_000
+    applied_decisions = 0
 
-    for index, session in enumerate(sessions):
+    for index in range(start_index, end_index + 1):
+        session = sessions[index]
         scheduled_decision = decision_by_execution.get(session)
         if scheduled_decision is not None:
+            applied_decisions += 1
             weights = _weights(
                 scheduled_decision.target_symbols,
                 rows_by_symbol,
@@ -215,6 +240,9 @@ def replay_portfolio(
         )
         costs = sum(fill.modeled_cost for fill in fills)
         invested = tuple(symbol for symbol in symbols if positions[symbol] > 0)
+        position_snapshot = tuple(
+            (symbol, positions[symbol]) for symbol in symbols if positions[symbol] > 0
+        )
         equity.append(
             PortfolioPoint(
                 session=session,
@@ -222,6 +250,7 @@ def replay_portfolio(
                 gross_equity=gross + costs,
                 net_equity=gross,
                 invested_symbols=invested,
+                positions=position_snapshot,
             )
         )
 
@@ -236,7 +265,17 @@ def replay_portfolio(
     total_return = net[-1] / initial_cash - 1
     observations = len(net)
     cagr = (net[-1] / initial_cash) ** (252 / observations) - 1
-    volatility = stdev(returns) * math.sqrt(252) if len(returns) > 1 else None
+    sample_volatility = stdev(returns) if len(returns) > 1 else None
+    volatility = (
+        sample_volatility * math.sqrt(252) if sample_volatility is not None else None
+    )
+    sharpe = (
+        fmean(returns) / sample_volatility * math.sqrt(252)
+        if sample_volatility is not None and sample_volatility > 0
+        else None
+    )
+    modeled_costs = sum(fill.modeled_cost for fill in fills)
+    gross_return = equity[-1].gross_equity / initial_cash - 1
     turnover = (
         sum(fill.quantity * fill.price for fill in fills) / fmean(net) if net else None
     )
@@ -250,11 +289,17 @@ def replay_portfolio(
             "total_return": total_return,
             "CAGR": cagr,
             "annualized_volatility": volatility,
+            "Sharpe": sharpe,
             "max_drawdown": min(drawdowns),
             "exposure": fmean(bool(point.invested_symbols) for point in equity),
             "turnover": turnover,
             "number_of_trades": sum(fill.side == "buy" for fill in fills),
-            "modeled_costs": sum(fill.modeled_cost for fill in fills),
+            "number_of_fills": len(fills),
+            "number_of_rebalances": applied_decisions,
+            "observations": observations,
+            "modeled_costs": modeled_costs,
+            "gross_to_net_cost_drag": gross_return - total_return,
             "final_equity": net[-1],
         },
+        decisions=tuple(decisions),
     )

@@ -69,8 +69,9 @@ uma promessa de que a estratégia funciona no futuro.
   fills continuam iguais em outro motor.
 - **V0.3–V0.5:** pontes de pesquisa para paper, TradingView e Forex, sem
   conexão de broker nem envio de ordem.
-- **V0.6:** referência de portfólio com caixa compartilhado e pesos declarados,
-  sem otimização automática.
+- **V0.6:** replay de portfólio com dados reais do snapshot validado, caixa
+  compartilhado, fills, curva de patrimônio e pesos declarados, sem otimização
+  automática ou acesso ao holdout.
 - **V1.0:** research operacional privado com interface Sites, candles
   provider-neutral, BYOD/arquivo licenciado, diagnóstico de frescor e separação
   explícita dos gates realtime/paper/live.

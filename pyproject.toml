@@ -36,7 +36,7 @@ dev = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/tradinglab"]
+packages = ["src/tradinglab", "v0_6_portfolio"]
 
 [tool.pytest.ini_options]
 addopts = "-ra --strict-config --strict-markers"

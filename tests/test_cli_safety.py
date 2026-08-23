@@ -15,6 +15,7 @@ def test_cli_exposes_only_declared_local_research_operations() -> None:
         "report",
         "registry",
         "reproduce",
+        "run-portfolio",
     ):
         assert command in help_text
     assert "submit" not in help_text.lower()

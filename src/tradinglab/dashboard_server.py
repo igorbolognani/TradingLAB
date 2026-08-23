@@ -14,10 +14,13 @@ from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
 from urllib.parse import parse_qs, urlparse
 
+import pandas as pd
+
 from tradinglab.calendar import regular_sessions
+from tradinglab.constants import ASSETS, TEMPORAL_SPLITS
 from tradinglab.data import (
     CANONICAL_CANDLE_SCHEMA,
     SnapshotStore,
@@ -30,12 +33,18 @@ from tradinglab.data import (
     serialize_canonical_candles,
 )
 from tradinglab.experiments import run_battery
+from tradinglab.registry import code_provenance
+from v0_6_portfolio.contract import AllocationMethod
+from v0_6_portfolio.service import run_trend_portfolio
 
 DATASET_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{8,160}$")
 SYMBOL_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,24}$")
 ALLOWED_SPLITS = frozenset({"development", "validation_oos"})
 MAX_REQUEST_BYTES = 64 * 1024
 MAX_CANDLE_ROWS = 1_000
+MAX_PORTFOLIO_EQUITY_ROWS = 6_000
+PORTFOLIO_ALLOCATION_METHODS = frozenset({"equal_weight", "inverse_vol"})
+PORTFOLIO_FRICTION_SCENARIOS = frozenset({0, 5, 10, 25})
 ALLOWED_BROWSER_ORIGINS = frozenset(
     {
         "http://localhost:3000",
@@ -261,6 +270,164 @@ def canonical_candle_payload(
     }
 
 
+def portfolio_payload(
+    project_root: Path,
+    *,
+    dataset_id: str,
+    split_key: str,
+    allocation_method: AllocationMethod,
+    friction_bps: int,
+) -> dict[str, Any]:
+    """Run and serialize a real-data V0.6 reference portfolio."""
+
+    if not DATASET_ID_PATTERN.fullmatch(dataset_id):
+        raise ValueError("dataset_id is invalid")
+    if split_key not in ALLOWED_SPLITS:
+        raise ValueError("V0.6 only exposes Development and Validation OOS")
+    if allocation_method not in PORTFOLIO_ALLOCATION_METHODS:
+        raise ValueError("unsupported V0.6 allocation method")
+    if friction_bps not in PORTFOLIO_FRICTION_SCENARIOS:
+        raise ValueError("friction scenario is not predeclared")
+
+    store = SnapshotStore(project_root / "data" / "snapshots")
+    validation = store.validate_dataset(dataset_id)
+    manifest = store.load_manifest(dataset_id)
+    symbols = tuple(manifest.get("symbols", ()))
+    missing_assets = [symbol for symbol in ASSETS if symbol not in symbols]
+    if missing_assets:
+        raise ValueError(f"dataset is missing V0.6 assets: {missing_assets}")
+    frames = {symbol: store.load_normalized(dataset_id, symbol) for symbol in ASSETS}
+    split = TEMPORAL_SPLITS[split_key]
+    run = run_trend_portfolio(
+        frames,
+        evaluation_start=split.start,
+        evaluation_end=split.end,
+        allocation_method=allocation_method,
+        sma_window=200,
+        rebalance_every=21,
+        friction_bps=float(friction_bps),
+        volatility_lookback=20,
+        initial_cash=100_000.0,
+    )
+    result = run.result
+    if not result.equity or len(result.equity) > MAX_PORTFOLIO_EQUITY_ROWS:
+        raise ValueError("portfolio evaluation window exceeds the response limit")
+
+    last_point = result.equity[-1]
+    final_equity = float(result.metrics["final_equity"] or 0.0)
+    final_positions: list[dict[str, Any]] = []
+    for symbol, quantity in last_point.positions:
+        frame = frames[symbol]
+        matching = frame.loc[
+            [
+                pd.Timestamp(cast(Any, timestamp)).date() == last_point.session
+                for timestamp in frame.index
+            ]
+        ]
+        if matching.empty:
+            raise ValueError(f"last portfolio session is missing for {symbol}")
+        close = float(matching.iloc[-1]["Close"])
+        market_value = quantity * close
+        final_positions.append(
+            {
+                "symbol": symbol,
+                "quantity": quantity,
+                "mark_close": close,
+                "market_value": market_value,
+                "weight": market_value / final_equity if final_equity else None,
+            }
+        )
+
+    provenance = code_provenance(project_root)
+    return {
+        "contract": "tradinglab/v0.6-portfolio/v1",
+        "status": "completed",
+        "evidence_class": "reference_replay",
+        "dataset": {
+            "dataset_id": dataset_id,
+            "dataset_checksum": manifest.get("dataset_checksum"),
+            "manifest_hash": manifest.get("manifest_hash"),
+            "provider": manifest.get("provider"),
+            "provider_version": manifest.get("provider_version"),
+            "retrieved_at": manifest.get("retrieved_at"),
+            "symbols": list(ASSETS),
+            "interval": manifest.get("interval"),
+            "normalized_timezone": manifest.get("normalized_timezone"),
+            "exchange_calendar": manifest.get("exchange_calendar"),
+            "price_basis_id": manifest.get("price_basis_id"),
+            "manifest_validation": {
+                "valid": bool(validation.get("valid")),
+                "validated_at": validation.get("validated_at"),
+            },
+        },
+        "configuration": {
+            "split": split_key,
+            "split_label": split.label,
+            "evaluation_start": split.start.isoformat(),
+            "evaluation_end": split.end.isoformat(),
+            "effective_start": result.equity[0].session.isoformat(),
+            "effective_end": result.equity[-1].session.isoformat(),
+            "allocation_method": allocation_method,
+            "sma_window": 200,
+            "rebalance_every": 21,
+            "volatility_lookback": 20,
+            "friction_bps": friction_bps,
+            "initial_cash": 100_000.0,
+            "long_only": True,
+            "integer_shares": True,
+            "leverage": 1,
+            "terminal_convention": "mark_to_final_close_without_synthetic_liquidation",
+        },
+        "provenance": provenance,
+        "metrics": result.metrics,
+        "decisions": [
+            {
+                "decision_session": decision.decision_session.isoformat(),
+                "execution_session": decision.execution_session.isoformat(),
+                "target_symbols": list(decision.target_symbols),
+            }
+            for decision in run.decisions
+        ],
+        "fills": [
+            {
+                "session": fill.session.isoformat(),
+                "symbol": fill.symbol,
+                "side": fill.side,
+                "quantity": fill.quantity,
+                "price": fill.price,
+                "modeled_cost": fill.modeled_cost,
+            }
+            for fill in result.fills
+        ],
+        "equity": [
+            {
+                "session": point.session.isoformat(),
+                "cash": point.cash,
+                "gross_equity": point.gross_equity,
+                "net_equity": point.net_equity,
+                "invested_symbols": list(point.invested_symbols),
+                "positions": [
+                    {"symbol": symbol, "quantity": quantity}
+                    for symbol, quantity in point.positions
+                ],
+            }
+            for point in result.equity
+        ],
+        "final_positions": final_positions,
+        "safety": {
+            "project_holdout_evaluated": False,
+            "paper_execution": False,
+            "live_execution": False,
+            "broker_order_submission": False,
+            "automatic_optimization": False,
+        },
+        "message": (
+            "Resultado de replay V0.6 com dados locais validados; não é uma ordem, "
+            "recomendação ou prova de rentabilidade futura."
+        ),
+    }
+
+
 def validate_battery_request(
     payload: object,
     available_dataset_ids: Sequence[str],
@@ -289,6 +456,54 @@ def validate_battery_request(
     if len(set(splits)) != len(splits):
         raise ValueError("splits must be unique")
     return raw_dataset_id, splits
+
+
+def validate_portfolio_request(
+    payload: object,
+    available_dataset_ids: Sequence[str],
+) -> tuple[str, str, AllocationMethod, int]:
+    """Validate a broker-neutral V0.6 reference replay request."""
+
+    if not isinstance(payload, Mapping):
+        raise ValueError("request body must be a JSON object")
+    if payload.get("confirmed") is not True:
+        raise ValueError("explicit confirmation is required")
+    dataset_id = payload.get("dataset_id")
+    if not isinstance(dataset_id, str) or not DATASET_ID_PATTERN.fullmatch(dataset_id):
+        raise ValueError("dataset_id is invalid")
+    if dataset_id not in available_dataset_ids:
+        raise ValueError("dataset_id is not materialized locally")
+    split_key = payload.get("split", "development")
+    if not isinstance(split_key, str) or split_key not in ALLOWED_SPLITS:
+        raise ValueError("V0.6 only exposes Development and Validation OOS")
+    allocation_method = payload.get("allocation_method", "equal_weight")
+    if (
+        not isinstance(allocation_method, str)
+        or allocation_method not in PORTFOLIO_ALLOCATION_METHODS
+    ):
+        raise ValueError("unsupported V0.6 allocation method")
+    friction_bps = payload.get("friction_bps", 5)
+    if (
+        isinstance(friction_bps, bool)
+        or not isinstance(friction_bps, int)
+        or friction_bps not in PORTFOLIO_FRICTION_SCENARIOS
+    ):
+        raise ValueError("friction_bps must be one of 0, 5, 10, or 25")
+    fixed_parameters = {
+        "sma_window": 200,
+        "rebalance_every": 21,
+        "volatility_lookback": 20,
+        "initial_cash": 100_000.0,
+    }
+    for field, expected in fixed_parameters.items():
+        if payload.get(field, expected) != expected:
+            raise ValueError(f"V0.6 fixed parameter cannot be changed: {field}")
+    return (
+        dataset_id,
+        str(split_key),
+        cast(AllocationMethod, allocation_method),
+        friction_bps,
+    )
 
 
 class DashboardHandler(BaseHTTPRequestHandler):
@@ -343,6 +558,8 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "capabilities": {
                         "private_yfinance_snapshot": bool(ids),
                         "configured_external_file": self.candle_file is not None,
+                        "portfolio_reference": bool(ids),
+                        "portfolio_holdout": False,
                         "realtime_active": False,
                         "latency_ms": None,
                         "paper_execution": False,
@@ -396,6 +613,27 @@ class DashboardHandler(BaseHTTPRequestHandler):
         self._send_json(404, {"error": "not found"})
 
     def do_POST(self) -> None:
+        if self.path == "/api/run-portfolio":
+            try:
+                payload = self._read_json()
+                dataset_id, split_key, allocation_method, friction_bps = (
+                    validate_portfolio_request(payload, dataset_ids(self.project_root))
+                )
+                result = portfolio_payload(
+                    self.project_root,
+                    dataset_id=dataset_id,
+                    split_key=split_key,
+                    allocation_method=allocation_method,
+                    friction_bps=friction_bps,
+                )
+            except ValueError as exc:
+                self._send_json(400, {"error": str(exc)})
+                return
+            except Exception as exc:  # preserve local failure without a traceback
+                self._send_json(500, {"error": f"portfolio replay failed: {exc}"})
+                return
+            self._send_json(200, result)
+            return
         if self.path != "/api/run-battery":
             self._send_json(404, {"error": "not found"})
             return

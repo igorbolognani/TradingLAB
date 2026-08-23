@@ -27,7 +27,7 @@ implicit execution channel:
 | V0.3 | Can a decision be observed and reconciled safely? | Manifest gate, intent/fill schema, local simulator | Alpaca SDK, API, order submission |
 | V0.4 | Does visual triage help formulate a hypothesis? | Pine v6 confirmed-bar observer and parser | Pine as canonical engine or executor |
 | V0.5 | Can the methodology be tested on a different market? | UTC Forex CSV contract and causal EURUSD D1 replay | MT5 connection, broker history, EA |
-| V0.6 | Can several research signals share capital transparently? | Reference portfolio replay and allocation baselines | Broker execution, automatic optimization |
+| V0.6 | Can several research signals share capital transparently? | Real-snapshot reference replay, local API/CLI, equity/fills/positions and allocation baselines | Broker execution, Project Holdout, automatic optimization |
 
 ## V0.3 — Paper readiness, not paper execution
 
@@ -116,6 +116,22 @@ paper observation, the evidence packet must include:
 Changing a strategy after the observed holdout creates a new strategy version,
 new specification, new dataset/experiment linkage, and a new reserved period.
 
+## V0.6 — operational reference portfolio
+
+The V0.6 reference layer is now callable through `tradinglab run-portfolio`,
+`POST /api/run-portfolio`, and the private Portfolio screen. It reads the
+validated five-ETF normalized snapshot, calculates SMA200 signals on the full
+history, and starts a fresh simulated USD 100,000 account at the effective
+start of Development or Validation OOS. Rebalances occur every 21 sessions at
+the next valid open, with integer long-only positions, shared cash and modeled
+friction.
+
+The two declared allocation baselines are equal weight and inverse volatility
+with a 20-session lookback. Their results include decisions, fills, net/gross
+equity, final positions, costs and provenance. The service rejects
+`project_holdout`; this is a new portfolio research surface, not permission to
+reuse the already-seen V0.1 holdout.
+
 ## Decisions that remain deferred
 
 - A licensed/commercial data provider is required before redistribution or
@@ -126,9 +142,9 @@ new specification, new dataset/experiment linkage, and a new reserved period.
   contract and requires an explicit future authorization.
 - A broker-specific MT5 test requires choosing the broker, symbol contract,
   timezone, and history source at the time of that experiment.
-- Portfolio construction, VectorBT, ML, and automatic optimization remain
-  later research questions, not hidden additions to V0.1. V0.6 now has only a
-  reference contract; an accelerator must reproduce it before adoption.
+- VectorBT acceleration, ML, and automatic optimization remain later research
+  questions. V0.6 has a Python reference contract first; an accelerator must
+  reproduce it before adoption.
 
 ## Official references used for the contracts
 

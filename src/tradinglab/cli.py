@@ -7,6 +7,7 @@ from datetime import date
 from pathlib import Path
 
 from tradinglab.constants import ASSETS, TEMPORAL_SPLITS
+from tradinglab.dashboard_server import portfolio_payload
 from tradinglab.data import (
     SnapshotStore,
     inspect_canonical_candles,
@@ -125,6 +126,28 @@ def build_parser() -> argparse.ArgumentParser:
         "reproduce", help="verify canonical analytical reproduction"
     )
     reproduce.add_argument("--trial-id", required=True)
+
+    portfolio = subparsers.add_parser(
+        "run-portfolio", help="run the broker-neutral V0.6 reference portfolio"
+    )
+    portfolio.add_argument("--dataset-id", required=True)
+    portfolio.add_argument(
+        "--split", choices=("development", "validation_oos"), required=True
+    )
+    portfolio.add_argument(
+        "--allocation-method",
+        choices=("equal_weight", "inverse_vol"),
+        default="equal_weight",
+    )
+    portfolio.add_argument(
+        "--friction-bps", type=int, choices=(0, 5, 10, 25), default=5
+    )
+    portfolio.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="optional local JSON path for importing the result into the site",
+    )
     return parser
 
 
@@ -220,6 +243,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         result = ExperimentRunner(project_root).reproduce(args.trial_id)
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0 if result["reproduced"] else 1
+    if args.command == "run-portfolio":
+        result = portfolio_payload(
+            project_root,
+            dataset_id=args.dataset_id,
+            split_key=args.split,
+            allocation_method=args.allocation_method,
+            friction_bps=args.friction_bps,
+        )
+        serialized = json.dumps(result, indent=2, sort_keys=True)
+        if args.output is not None:
+            output_path = args.output.resolve()
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+            output_path.write_text(serialized + "\n", encoding="utf-8")
+        print(serialized)
+        return 0
     raise AssertionError("unreachable command")
 
 

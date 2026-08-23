@@ -101,6 +101,106 @@ type CandlePayload = {
   };
 };
 
+type PortfolioPosition = {
+  symbol: string;
+  quantity: number;
+  mark_close?: number;
+  market_value?: number;
+  weight?: number | null;
+};
+
+type PortfolioEquityPoint = {
+  session: string;
+  cash: number;
+  gross_equity: number;
+  net_equity: number;
+  invested_symbols: string[];
+  positions: PortfolioPosition[];
+};
+
+type PortfolioPayload = {
+  contract: string;
+  status: string;
+  evidence_class: string;
+  dataset: {
+    dataset_id: string;
+    dataset_checksum: string | null;
+    manifest_hash: string | null;
+    provider: string;
+    provider_version: string;
+    retrieved_at: string | null;
+    symbols: string[];
+    interval: string;
+    normalized_timezone: string;
+    exchange_calendar: string;
+    price_basis_id: string;
+    manifest_validation: { valid: boolean };
+  };
+  configuration: {
+    split: string;
+    split_label: string;
+    evaluation_start: string;
+    evaluation_end: string;
+    effective_start: string;
+    effective_end: string;
+    allocation_method: "equal_weight" | "inverse_vol";
+    sma_window: number;
+    rebalance_every: number;
+    volatility_lookback: number;
+    friction_bps: number;
+    initial_cash: number;
+    long_only: boolean;
+    integer_shares: boolean;
+    leverage: number;
+    terminal_convention: string;
+  };
+  provenance: {
+    git_commit: string;
+    git_branch: string;
+    dirty_worktree: boolean;
+    dependency_lock_hash: string;
+  };
+  metrics: {
+    total_return: number;
+    CAGR: number;
+    annualized_volatility: number | null;
+    Sharpe: number | null;
+    max_drawdown: number;
+    exposure: number;
+    turnover: number;
+    number_of_trades: number;
+    number_of_fills: number;
+    number_of_rebalances: number;
+    observations: number;
+    modeled_costs: number;
+    gross_to_net_cost_drag: number;
+    final_equity: number;
+  };
+  decisions: Array<{
+    decision_session: string;
+    execution_session: string;
+    target_symbols: string[];
+  }>;
+  fills: Array<{
+    session: string;
+    symbol: string;
+    side: string;
+    quantity: number;
+    price: number;
+    modeled_cost: number;
+  }>;
+  equity: PortfolioEquityPoint[];
+  final_positions: PortfolioPosition[];
+  safety: {
+    project_holdout_evaluated: boolean;
+    paper_execution: boolean;
+    live_execution: boolean;
+    broker_order_submission: boolean;
+    automatic_optimization: boolean;
+  };
+  message: string;
+};
+
 const ASSETS = ["SPY", "IWM", "EFA", "TLT", "GLD"] as const;
 const STRATEGIES = [
   "CASH_0_V1",
@@ -408,6 +508,24 @@ function parseImportedText(text: string, filename: string): DashboardRow[] {
   return parseCsv(text);
 }
 
+function parsePortfolioText(text: string): PortfolioPayload {
+  const payload: unknown = JSON.parse(text);
+  if (!payload || typeof payload !== "object") {
+    throw new Error("JSON de portfólio inválido");
+  }
+  const candidate = payload as Partial<PortfolioPayload>;
+  if (
+    candidate.contract !== "tradinglab/v0.6-portfolio/v1" ||
+    candidate.status !== "completed" ||
+    !Array.isArray(candidate.equity) ||
+    !candidate.configuration ||
+    !candidate.metrics
+  ) {
+    throw new Error("JSON não contém um resultado V0.6 completo");
+  }
+  return payload as PortfolioPayload;
+}
+
 function median(values: number[]): number {
   if (!values.length) return 0;
   const ordered = [...values].sort((left, right) => left - right);
@@ -578,6 +696,77 @@ function CandleChart({ candles }: { candles: Candle[] }) {
   return <canvas ref={canvasRef} className="candle-canvas" aria-label="Candles OHLC e volume" />;
 }
 
+function PortfolioChart({ equity }: { equity: PortfolioEquityPoint[] }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !equity.length) return;
+    const context = canvas.getContext("2d");
+    if (!context) return;
+
+    function draw() {
+      const rect = canvas.getBoundingClientRect();
+      const width = Math.max(320, rect.width);
+      const height = 300;
+      const pixelRatio = window.devicePixelRatio || 1;
+      canvas.width = width * pixelRatio;
+      canvas.height = height * pixelRatio;
+      context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+      context.clearRect(0, 0, width, height);
+
+      const values = equity.map((point) => point.net_equity);
+      const maximum = Math.max(...values);
+      const minimum = Math.min(...values);
+      const range = Math.max(maximum - minimum, 0.000001);
+      const left = 68;
+      const right = 16;
+      const top = 20;
+      const bottom = 250;
+      const chartWidth = width - left - right;
+      const x = (index: number) => left + (chartWidth * index) / Math.max(values.length - 1, 1);
+      const y = (value: number) => top + ((maximum - value) / range) * (bottom - top);
+
+      context.font = "10px ui-monospace, monospace";
+      context.lineWidth = 1;
+      for (let index = 0; index <= 4; index += 1) {
+        const gridY = top + ((bottom - top) * index) / 4;
+        const label = maximum - (range * index) / 4;
+        context.strokeStyle = "#e5eaf2";
+        context.beginPath();
+        context.moveTo(left, gridY);
+        context.lineTo(width - right, gridY);
+        context.stroke();
+        context.fillStyle = "#8190a5";
+        context.fillText(formatPrice(label), 5, gridY + 3);
+      }
+
+      context.strokeStyle = "#3267f3";
+      context.lineWidth = 2;
+      context.beginPath();
+      values.forEach((value, index) => {
+        const pointX = x(index);
+        const pointY = y(value);
+        if (index === 0) context.moveTo(pointX, pointY);
+        else context.lineTo(pointX, pointY);
+      });
+      context.stroke();
+
+      context.fillStyle = "#8190a5";
+      const labelIndexes = [0, Math.floor((equity.length - 1) / 2), equity.length - 1];
+      labelIndexes.forEach((index) => {
+        context.fillText(equity[index].session, Math.max(left, x(index) - 30), height - 10);
+      });
+    }
+
+    draw();
+    window.addEventListener("resize", draw);
+    return () => window.removeEventListener("resize", draw);
+  }, [equity]);
+
+  return <canvas ref={canvasRef} className="portfolio-canvas" aria-label="Curva de patrimônio do portfólio" />;
+}
+
 function AppMark() {
   return (
     <div className="app-mark" aria-hidden="true">
@@ -606,8 +795,15 @@ export default function Home() {
   const [candleNotice, setCandleNotice] = useState("");
   const [candleSource, setCandleSource] = useState<"snapshot" | "external_file" | "browser_file">("snapshot");
   const [externalFileAvailable, setExternalFileAvailable] = useState(false);
+  const [portfolioPayload, setPortfolioPayload] = useState<PortfolioPayload | null>(null);
+  const [portfolioSplit, setPortfolioSplit] = useState("development");
+  const [portfolioMethod, setPortfolioMethod] = useState<"equal_weight" | "inverse_vol">("equal_weight");
+  const [portfolioFriction, setPortfolioFriction] = useState("5");
+  const [isRunningPortfolio, setIsRunningPortfolio] = useState(false);
+  const [portfolioNotice, setPortfolioNotice] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
   const candleFileInput = useRef<HTMLInputElement>(null);
+  const portfolioFileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let active = true;
@@ -617,7 +813,10 @@ export default function Home() {
         return (await response.json()) as {
           dataset_ids?: string[];
           recommended_dataset_id?: string | null;
-          capabilities?: { configured_external_file?: boolean };
+          capabilities?: {
+            configured_external_file?: boolean;
+            portfolio_reference?: boolean;
+          };
         };
       })
       .then((payload) => {
@@ -790,6 +989,60 @@ export default function Home() {
     }
   }
 
+  async function handlePortfolioFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const imported = parsePortfolioText(await file.text());
+      setPortfolioPayload(imported);
+      setPortfolioSplit(imported.configuration.split);
+      setPortfolioMethod(imported.configuration.allocation_method);
+      setPortfolioFriction(String(imported.configuration.friction_bps));
+      setPortfolioNotice(`Resultado V0.6 carregado no navegador: ${file.name}.`);
+    } catch (error) {
+      setPortfolioPayload(null);
+      setPortfolioNotice(
+        `Não foi possível ler o resultado V0.6: ${error instanceof Error ? error.message : "JSON inválido"}.`,
+      );
+    } finally {
+      event.target.value = "";
+    }
+  }
+
+  async function runLocalPortfolio() {
+    if (!localApiAvailable || !localDatasetId) {
+      setPortfolioNotice("Inicie o servidor local com `uv run tradinglab-dashboard` para executar o portfólio.");
+      return;
+    }
+    if (!window.confirm("Executar o replay V0.6 com caixa simulado e sem holdout?")) return;
+    setIsRunningPortfolio(true);
+    setPortfolioNotice("Validando o snapshot completo e executando o replay V0.6…");
+    try {
+      const response = await fetch("http://127.0.0.1:8787/api/run-portfolio", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          confirmed: true,
+          dataset_id: localDatasetId,
+          split: portfolioSplit,
+          allocation_method: portfolioMethod,
+          friction_bps: Number(portfolioFriction),
+        }),
+      });
+      const payload = (await response.json()) as PortfolioPayload & { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "replay recusado");
+      setPortfolioPayload(payload);
+      setPortfolioNotice(`${payload.configuration.split_label}: ${payload.equity.length.toLocaleString("en-US")} sessões reproduzidas com dados reais.`);
+    } catch (error) {
+      setPortfolioPayload(null);
+      setPortfolioNotice(
+        `O replay V0.6 falhou: ${error instanceof Error ? error.message : "erro desconhecido"}.`,
+      );
+    } finally {
+      setIsRunningPortfolio(false);
+    }
+  }
+
   function renderOverview() {
     return (
       <>
@@ -815,7 +1068,7 @@ export default function Home() {
             <div className="note-icon">⌁</div>
             <div>
               <strong>Estado do laboratório</strong>
-              <p>V0.1 congelada · V0.2 reproduzida · V1.0 research operacional</p>
+              <p>V0.1 congelada · V0.2 reproduzida · V0.6 portfólio operacional</p>
             </div>
             <span className="status-dot" aria-label="ativo" />
           </div>
@@ -1046,26 +1299,58 @@ export default function Home() {
   }
 
   function renderPortfolio() {
-    const equalWeight = 100 / ASSETS.length;
+    const portfolio = portfolioPayload;
+    const portfolioMetrics = portfolio?.metrics;
     return (
       <section className="page-stack">
-        <div className="page-heading"><div><div className="eyebrow">V0.6 / Portfolio reference</div><h1>Um portfólio pequeno, auditável e sem otimizador.</h1></div><span className="coming-badge">REFERENCE READY</span></div>
+        <div className="page-heading"><div><div className="eyebrow">V0.6 / Portfolio reference</div><h1>Um portfólio pequeno, auditável e sem otimizador.</h1></div><span className={`api-badge ${localApiAvailable ? "api-online" : "api-offline"}`}><span /> {localApiAvailable ? "Replay local disponível" : "Importe um resultado local"}</span></div>
         <div className="portfolio-grid">
-          <article className="panel portfolio-main">
-            <div className="panel-heading"><div><div className="panel-kicker">Allocation baseline</div><h2>Composição de referência</h2></div><span className="source-pill">V0.6 local</span></div>
-            <div className="allocation-list">
-              {ASSETS.map((item, index) => <div className="allocation-row" key={item}><div className="allocation-symbol"><span className={`allocation-color allocation-${index}`} />{item}</div><div className="allocation-bar"><span style={{ width: `${equalWeight}%` }} /></div><strong>{equalWeight.toFixed(1)}%</strong></div>)}
+          <article className="panel control-panel">
+            <div className="panel-kicker">Portfolio controls</div>
+            <h2>Executar uma referência real</h2>
+            <p className="panel-copy">O replay usa o snapshot local validado, caixa inicial simulado de US$100.000 e apenas Development ou Validation OOS. O Project Holdout continua bloqueado.</p>
+            <div className="field-grid">
+              <label htmlFor="portfolio-split">Período<select id="portfolio-split" value={portfolioSplit} onChange={(event) => setPortfolioSplit(event.target.value)}><option value="development">Development</option><option value="validation_oos">Validation OOS</option></select></label>
+              <label htmlFor="portfolio-method">Alocação<select id="portfolio-method" value={portfolioMethod} onChange={(event) => setPortfolioMethod(event.target.value as "equal_weight" | "inverse_vol")}><option value="equal_weight">Equal weight</option><option value="inverse_vol">Inverse volatility</option></select></label>
+              <label htmlFor="portfolio-friction">Fricção por lado<select id="portfolio-friction" value={portfolioFriction} onChange={(event) => setPortfolioFriction(event.target.value)}><option value="0">0 bps</option><option value="5">5 bps</option><option value="10">10 bps</option><option value="25">25 bps</option></select></label>
             </div>
-            <div className="portfolio-callout"><strong>Regra declarada:</strong> equal weight entre os cinco ETFs quando todos estiverem elegíveis. Isto é uma referência de alocação, não uma posição real nem uma recomendação.</div>
+            <div className="control-actions">
+              <button className="button button-primary" onClick={() => void runLocalPortfolio()} disabled={isRunningPortfolio}>{isRunningPortfolio ? "Executando…" : "Executar replay local"}</button>
+              <button className="button button-outline" onClick={() => portfolioFileInput.current?.click()}>Carregar JSON V0.6</button>
+              <input ref={portfolioFileInput} className="visually-hidden" type="file" accept=".json,application/json" onChange={(event) => void handlePortfolioFile(event)} />
+            </div>
+            <div className="execution-note"><strong>{localDatasetId ? "Snapshot detectado" : "Sem snapshot conectado"}</strong><span>{localDatasetId || "Inicie a API local ou importe um JSON produzido pelo comando run-portfolio."}</span></div>
           </article>
           <article className="panel portfolio-side">
-            <div className="panel-kicker">Available methods</div><h2>Baselines declaradas</h2>
-            <div className="method-card active"><span>01</span><div><strong>Equal weight</strong><small>Pesos iguais entre sinais long</small></div><b>BASE</b></div>
-            <div className="method-card"><span>02</span><div><strong>Inverse volatility</strong><small>Menor volatilidade recebe mais peso</small></div><b>CHECK</b></div>
-            <div className="method-card muted"><span>03</span><div><strong>Otimização automática</strong><small>Fora do escopo e bloqueada</small></div><b>OFF</b></div>
+            <div className="panel-kicker">Contract / fixed parameters</div><h2>O que fica congelado</h2>
+            <div className="method-card active"><span>01</span><div><strong>SMA 200</strong><small>Decisão no fechamento confirmado</small></div><b>FIXO</b></div>
+            <div className="method-card"><span>02</span><div><strong>Rebalance 21 sessões</strong><small>Execução na abertura seguinte</small></div><b>FIXO</b></div>
+            <div className="method-card"><span>03</span><div><strong>Long-only / caixa compartilhado</strong><small>Shares inteiras, sem leverage</small></div><b>FIXO</b></div>
+            <div className="method-card muted"><span>04</span><div><strong>Otimização automática</strong><small>Fora do escopo e bloqueada</small></div><b>OFF</b></div>
           </article>
         </div>
-        <div className="panel roadmap-panel"><div className="panel-kicker">Product map</div><h2>Até onde o produto está preparado</h2><div className="roadmap-line">{["V0.1 Local lab", "V0.2 LEAN", "V0.3 Paper bridge", "V0.4 TradingView", "V0.5 Forex", "V0.6 Portfolio"].map((item, index) => <div className={`roadmap-step ${index < 5 ? "done" : "current"}`} key={item}><span>{index < 5 ? "✓" : "6"}</span><strong>{item}</strong></div>)}</div></div>
+        {portfolioNotice ? <div className="notice" role="status">{portfolioNotice}</div> : null}
+        {portfolio ? (
+          <>
+            <div className="source-strip"><span className="source-pill">{portfolio.dataset.provider} {portfolio.dataset.provider_version}</span><span>{portfolio.configuration.split_label} · {portfolio.configuration.allocation_method}</span><span>efetivo {portfolio.configuration.effective_start} → {portfolio.configuration.effective_end}</span><span className="quality-pill">manifesto validado</span><span className="historical-pill">sem holdout · sem execução externa</span></div>
+            <section className="metric-grid market-metric-grid" aria-label="Métricas do portfólio V0.6">
+              <MetricCard label="Patrimônio final" value={`$${formatPrice(portfolioMetrics?.final_equity)}`} detail={`inicial $${formatPrice(portfolio.configuration.initial_cash)}`} tone="blue" />
+              <MetricCard label="CAGR" value={formatPercent(portfolioMetrics?.CAGR ?? 0)} detail={`${portfolioMetrics?.number_of_rebalances ?? 0} rebalanceamentos`} tone="green" />
+              <MetricCard label="Sharpe" value={formatOptionalPercent(portfolioMetrics?.Sharpe ?? null, 2)} detail="retorno ajustado ao risco" tone="violet" />
+              <MetricCard label="Max drawdown" value={formatSignedPercent(portfolioMetrics?.max_drawdown ?? 0)} detail={`${formatPercent(portfolioMetrics?.exposure ?? 0)} do tempo exposto`} tone="orange" />
+              <MetricCard label="Custos modelados" value={`$${formatPrice(portfolioMetrics?.modeled_costs)}`} detail={`${portfolioMetrics?.number_of_fills ?? 0} fills simulados`} tone="violet" />
+            </section>
+            <div className="market-grid">
+              <article className="panel candle-panel"><div className="panel-heading"><div><div className="panel-kicker">Equity curve / net</div><h2>Curva de patrimônio</h2></div><span className="source-pill">{portfolio.equity.length} sessões</span></div><PortfolioChart equity={portfolio.equity} /><div className="chart-footnote">A curva é marcada a mercado no fechamento. Não existe liquidação sintética no último dia.</div></article>
+              <article className="panel source-panel"><div className="panel-kicker">Result & provenance</div><h2>Configuração executada</h2><div className="source-detail-list"><div><span>DATASET</span><strong>{portfolio.dataset.dataset_id}</strong></div><div><span>MANIFEST</span><strong>{portfolio.dataset.manifest_hash}</strong></div><div><span>PRICE BASIS</span><strong>{portfolio.dataset.price_basis_id}</strong></div><div><span>FRACTION</span><strong>{portfolio.configuration.friction_bps} bps / lado</strong></div><div><span>VOLATILITY</span><strong>{portfolioMetrics?.annualized_volatility == null ? "—" : formatPercent(portfolioMetrics.annualized_volatility)}</strong></div><div><span>WORKTREE</span><strong>{portfolio.provenance.dirty_worktree ? "alterado" : "limpo"}</strong></div></div><div className="portfolio-callout"><strong>Limite:</strong> este resultado é uma referência de pesquisa com dinheiro simulado. Não é recomendação, paper fill ou ordem.</div></article>
+            </div>
+            <div className="portfolio-grid">
+              <article className="panel portfolio-main"><div className="panel-heading"><div><div className="panel-kicker">Final positions</div><h2>Posições no último fechamento</h2></div><span className="source-pill">caixa ${formatPrice(portfolio.equity.at(-1)?.cash)}</span></div><div className="allocation-list">{portfolio.final_positions.length ? portfolio.final_positions.map((position, index) => <div className="allocation-row" key={position.symbol}><div className="allocation-symbol"><span className={`allocation-color allocation-${index % ASSETS.length}`} />{position.symbol}</div><div className="allocation-bar"><span style={{ width: `${Math.min(100, (position.weight ?? 0) * 100)}%` }} /></div><strong>{formatPercent(position.weight ?? 0)}</strong></div>) : <EmptyState message="O portfólio terminou em caixa neste período." />}</div></article>
+              <article className="panel portfolio-side"><div className="panel-kicker">Last fills</div><h2>Últimas movimentações</h2><div className="fill-list">{portfolio.fills.slice(-8).reverse().map((fill) => <div className="fill-row" key={`${fill.session}-${fill.symbol}-${fill.side}-${fill.quantity}`}><span className={fill.side === "buy" ? "positive" : "negative"}>{fill.side === "buy" ? "BUY" : "SELL"}</span><strong>{fill.symbol}</strong><small>{fill.session} · {fill.quantity} @ {formatPrice(fill.price)}</small></div>)}{!portfolio.fills.length ? <EmptyState message="Nenhum fill simulado no recorte." /> : null}</div></article>
+            </div>
+          </>
+        ) : <EmptyState message="Execute o replay local ou carregue o JSON V0.6 para visualizar patrimônio, posições e fills reais." />}
+        <div className="panel roadmap-panel"><div className="panel-kicker">Product map</div><h2>Até onde o produto está preparado</h2><div className="roadmap-line">{["V0.1 Local lab", "V0.2 LEAN", "V0.3 Paper bridge", "V0.4 TradingView", "V0.5 Forex", "V0.6 Portfolio"].map((item) => <div className="roadmap-step done" key={item}><span>✓</span><strong>{item}</strong></div>)}</div></div>
       </section>
     );
   }
@@ -1078,7 +1363,7 @@ export default function Home() {
           <article className="panel provenance-main"><div className="panel-kicker">Data contract</div><h2>O que esta interface aceita</h2><div className="contract-list"><div><span className="contract-key">RAW</span><p>Dados do provedor preservados separadamente; não são embutidos no site público.</p></div><div><span className="contract-key">ACTIONS</span><p>Ações corporativas permanecem auditáveis e não são recarregadas como um detalhe invisível.</p></div><div><span className="contract-key">NORMALIZED</span><p>O painel aceita <code>all_trials.csv</code> ou JSON exportado e calcula o resumo no navegador.</p></div><div><span className="contract-key">HASH</span><p>Dataset, manifesto, commit e lockfile continuam sendo a autoridade; o painel é uma camada de leitura.</p></div></div></article>
           <article className="panel safety-panel"><div className="safety-mark">0</div><div className="panel-kicker">Safety boundary</div><h2>Research only</h2><p>Não existe no site SDK de broker, credencial, endpoint de ordem, paper trading, live trading ou promoção automática.</p><div className="safety-tags"><span>NO BROKER</span><span>NO CAPITAL</span><span>NO AUTO-PROMOTION</span></div></article>
         </div>
-        <article className="panel provenance-table"><div className="panel-heading"><div><div className="panel-kicker">Evidence status</div><h2>Mapa de entregas</h2></div></div><div className="status-table"><div><strong>V0.1</strong><span className="status-complete">COMPLETA</span><p>Backtest causal, registry append-only, holdout controlado.</p></div><div><strong>V0.2</strong><span className="status-complete">REPRODUZIDA</span><p>60/60 configurações primárias no gate independente.</p></div><div><strong>V0.3–V0.5</strong><span className="status-bridge">BRIDGES</span><p>Contratos e simuladores sem side effects externos.</p></div><div><strong>V0.6</strong><span className="status-current">UTILIZÁVEL</span><p>Referência de portfólio e painel visual sem otimizador.</p></div><div><strong>V1.0</strong><span className="status-current">RESEARCH</span><p>Interface privada, candles provider-neutral e BYOD auditável.</p></div></div></article>
+        <article className="panel provenance-table"><div className="panel-heading"><div><div className="panel-kicker">Evidence status</div><h2>Mapa de entregas</h2></div></div><div className="status-table"><div><strong>V0.1</strong><span className="status-complete">COMPLETA</span><p>Backtest causal, registry append-only, holdout controlado.</p></div><div><strong>V0.2</strong><span className="status-complete">REPRODUZIDA</span><p>60/60 configurações primárias no gate independente.</p></div><div><strong>V0.3–V0.5</strong><span className="status-bridge">BRIDGES</span><p>Contratos e simuladores sem side effects externos.</p></div><div><strong>V0.6</strong><span className="status-current">OPERACIONAL</span><p>Replay real multiativo, caixa compartilhado e alocações declaradas.</p></div><div><strong>V1.0</strong><span className="status-current">RESEARCH</span><p>Interface privada, candles provider-neutral e BYOD auditável.</p></div></div></article>
       </section>
     );
   }

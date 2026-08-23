@@ -43,6 +43,10 @@ test("keeps site assets inside the app source", async () => {
   assert.match(page, /run-battery/);
   assert.match(page, /api\/candles/);
   assert.match(page, /api\/candles-file/);
+  assert.match(page, /api\/run-portfolio/);
+  assert.match(page, /tradinglab\/v0\.6-portfolio\/v1/);
+  assert.match(page, /Executar replay local/);
+  assert.match(page, /Carregar JSON V0\.6/);
   assert.match(page, /Importar CSV/);
   assert.match(page, /browser_file/);
   assert.match(page, /realtime_active/);
