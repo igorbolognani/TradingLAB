@@ -25,11 +25,14 @@ test("server-renders the TradingLAB control room", async () => {
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
   const html = await response.text();
-  assert.match(html, /TradingLAB — Pesquisa quantitativa auditável/i);
-  assert.match(html, /Quant \/ systematic research lab/i);
+  assert.match(html, /TradingLAB — Ferramentas de trading com clareza e controle/i);
+  assert.match(html, /Trading tools · decisão com controle/i);
+  assert.match(html, /Trading workflow/i);
+  assert.match(html, /Gráficos completos/i);
   assert.match(html, /Entrar com ChatGPT/i);
   assert.match(html, /public-shell/i);
-  assert.match(html, /Pesquisa pública começa aqui/i);
+  assert.match(html, /Comece pela experiência pública/i);
+  assert.doesNotMatch(html, /Research loop|Quant \/ systematic research lab|Pesquisa auditável|Um laboratório/i);
   assert.doesNotMatch(html, /class="sidebar"/i);
   assert.doesNotMatch(html, /Home \/ dashboard/i);
   assert.doesNotMatch(html, /Market data/i);

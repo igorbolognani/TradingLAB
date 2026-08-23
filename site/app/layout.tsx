@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TradingLAB — Pesquisa quantitativa auditável",
-  description: "Um laboratório para transformar hipóteses de mercado em evidência reproduzível, com uma camada pública e um workspace privado.",
+  title: "TradingLAB — Ferramentas de trading com clareza e controle",
+  description: "Uma plataforma para visualizar o mercado, testar cenários, simular portfólios e acompanhar métricas com controle.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

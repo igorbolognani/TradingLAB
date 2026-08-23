@@ -1056,12 +1056,12 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
       <section className="landing page-stack">
         <section className="landing-hero">
           <div className="landing-hero-copy">
-            <div className="eyebrow">Quant / systematic research lab</div>
-            <h1>Pesquise estratégias com evidência, contexto e controle.</h1>
+            <div className="eyebrow">Trading workspace / V1.0</div>
+            <h1>Veja o mercado. Teste a ideia. Decida com mais clareza.</h1>
             <p className="hero-copy">
-              O TradingLAB transforma uma ideia de mercado em uma hipótese explícita,
-              um experimento reproduzível e uma decisão humana melhor informada.
-              Resultado histórico não vira promessa: vira evidência para o próximo passo.
+              Uma interface para acompanhar ativos, comparar cenários, simular
+              portfólios e entender o que cada número significa — sem transformar
+              uma simulação em promessa.
             </p>
             <div className="hero-actions">
               {viewer ? (
@@ -1084,41 +1084,41 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
               )}
             </div>
             <div className="landing-trust" aria-label="Princípios do produto">
-              <span><i>✓</i> causalidade explícita</span>
-              <span><i>✓</i> dados identificáveis</span>
+              <span><i>✓</i> gráficos e métricas claros</span>
+              <span><i>✓</i> simulação sem dinheiro real</span>
               <span><i>✓</i> sem ordens externas</span>
             </div>
           </div>
-          <div className="landing-signal-card" aria-label="Fluxo de pesquisa do TradingLAB">
-            <div className="landing-card-top"><span className="panel-kicker">Research loop</span><span className="live-badge"><b /> local-first</span></div>
-            <div className="landing-signal-title">Da observação à evidência</div>
-            <div className="research-flow">
-              <div><span>01</span><strong>Hipótese</strong><small>uma ideia que pode ser medida</small></div>
-              <div><span>02</span><strong>Especificação</strong><small>regra declarativa e versionada</small></div>
-              <div><span>03</span><strong>Backtest</strong><small>close confirmado → próximo open</small></div>
-              <div><span>04</span><strong>Robustez</strong><small>OOS, custos e reprodução</small></div>
+          <div className="landing-signal-card" aria-label="Fluxo de uso das ferramentas TradingLAB">
+            <div className="landing-card-top"><span className="panel-kicker">Trading workflow</span><span className="live-badge"><b /> simulação segura</span></div>
+            <div className="landing-signal-title">Do mercado à decisão</div>
+            <div className="product-flow">
+              <div><span>01</span><strong>Mercado</strong><small>candles, variação, volume e tendências</small></div>
+              <div><span>02</span><strong>Estratégia</strong><small>ativo, regra e período selecionados</small></div>
+              <div><span>03</span><strong>Simulação</strong><small>replay com custos e dinheiro virtual</small></div>
+              <div><span>04</span><strong>Acompanhamento</strong><small>patrimônio, risco e resultado</small></div>
             </div>
-            <div className="landing-card-footer"><span>V0.1 → V0.6</span><strong>evidência antes da execução</strong></div>
+            <div className="landing-card-footer"><span>TOOLS V1.0</span><strong>controle antes da ação</strong></div>
           </div>
         </section>
 
         <section className="landing-section">
-          <div className="section-intro"><div className="eyebrow">Por que existe</div><h2>Um laboratório, não uma promessa de lucro.</h2><p>O produto foi desenhado para responder se uma hipótese histórica merece outro experimento — e para deixar claro quando os dados ainda não permitem uma resposta.</p></div>
+          <div className="section-intro"><div className="eyebrow">A plataforma</div><h2>Ferramentas para operar melhor informado.</h2><p>A camada pública mostra como a experiência funciona. Depois do login, cada pessoa vê as ferramentas compatíveis com sua permissão — e o proprietário pode conectar seu ambiente local para trabalhar com dados reais.</p></div>
           <div className="landing-feature-grid">
-            <article className="landing-feature"><span className="feature-number">01</span><h3>Pesquisa auditável</h3><p>Cada resultado mantém estratégia, período, preço, custos, origem, versão e checksums no mesmo contexto.</p></article>
-            <article className="landing-feature"><span className="feature-number">02</span><h3>Comparação honesta</h3><p>Benchmarks, famílias de estratégias, custos e períodos fora da amostra ficam visíveis lado a lado.</p></article>
-            <article className="landing-feature"><span className="feature-number">03</span><h3>Engines separadas</h3><p>A lógica de domínio não depende de uma única ferramenta: Python, LEAN e futuras camadas podem ser comparados.</p></article>
-            <article className="landing-feature"><span className="feature-number">04</span><h3>Segurança por desenho</h3><p>O espaço público não recebe o snapshot Yahoo nem credenciais. A pesquisa privada continua local e sem envio de ordens.</p></article>
+            <article className="landing-feature"><span className="feature-number">01</span><h3>Gráficos completos</h3><p>Veja candles, volume e indicadores em contexto para entender o movimento do ativo, não apenas um preço isolado.</p></article>
+            <article className="landing-feature"><span className="feature-number">02</span><h3>Simulação de portfólio</h3><p>Compare alocações, patrimônio, custos, exposição e risco com capital virtual antes de considerar qualquer próximo passo.</p></article>
+            <article className="landing-feature"><span className="feature-number">03</span><h3>Métricas que explicam</h3><p>CAGR, Sharpe, drawdown, trades e fricção aparecem com contexto para evitar conclusões baseadas em um único número.</p></article>
+            <article className="landing-feature"><span className="feature-number">04</span><h3>Controle e privacidade</h3><p>O site público não expõe dados locais ou credenciais. A camada privada permanece protegida e sem envio de ordens.</p></article>
           </div>
         </section>
 
         <section className="landing-section landing-split-section">
-          <div className="landing-panel-copy"><div className="eyebrow">Como usar</div><h2>Uma resposta para cada etapa do pensamento.</h2><div className="landing-step-list"><div><span>01</span><p><strong>Explorar.</strong> Conheça o contrato, as famílias e os limites do laboratório.</p></div><div><span>02</span><p><strong>Formalizar.</strong> Transforme observação em regra que outra pessoa consegue ler.</p></div><div><span>03</span><p><strong>Testar.</strong> Compare retorno, risco, drawdown e custos sem esconder resultados ruins.</p></div><div><span>04</span><p><strong>Reproduzir.</strong> Só avance quando a evidência sobreviver a outro período ou engine.</p></div></div></div>
-          <div className="metric-explainer"><div className="panel-kicker">Métricas sem jargão</div><h3>O que cada resposta significa?</h3><div className="metric-definition"><strong>CAGR</strong><span>crescimento anualizado; resume o ritmo, não conta a história inteira.</span></div><div className="metric-definition"><strong>Sharpe</strong><span>retorno em relação à oscilação; maior não significa automaticamente melhor.</span></div><div className="metric-definition"><strong>Drawdown</strong><span>a pior queda do patrimônio; mostra o desconforto que existiu no caminho.</span></div><div className="metric-definition"><strong>OOS</strong><span>período que não foi usado para escolher a regra; é uma checagem mais honesta.</span></div></div>
+          <div className="landing-panel-copy"><div className="eyebrow">Como usar</div><h2>Tudo começa no painel certo.</h2><div className="landing-step-list"><div><span>01</span><p><strong>Entrar.</strong> Conheça a experiência pública e faça login para abrir o aplicativo.</p></div><div><span>02</span><p><strong>Selecionar.</strong> Escolha ativo, estratégia, período e fonte de dados.</p></div><div><span>03</span><p><strong>Simular.</strong> Execute um cenário com capital virtual, custos e regras explícitas.</p></div><div><span>04</span><p><strong>Acompanhar.</strong> Visualize candles, patrimônio, risco e origem dos números.</p></div></div></div>
+          <div className="metric-explainer"><div className="panel-kicker">Métricas sem complicação</div><h3>O painel mostra o que importa.</h3><div className="metric-definition"><strong>CAGR</strong><span>ritmo anualizado do resultado; ajuda a comparar períodos diferentes.</span></div><div className="metric-definition"><strong>Sharpe</strong><span>retorno comparado à oscilação; mostra a relação entre ganho e risco.</span></div><div className="metric-definition"><strong>Drawdown</strong><span>a maior queda do patrimônio; mostra o desconforto no caminho.</span></div><div className="metric-definition"><strong>Fricção</strong><span>custos estimados por negociação; revela quanto o cenário depende de custos baixos.</span></div></div>
         </section>
 
         <section className="landing-access">
-          <div><div className="eyebrow">Acesso por camada</div><h2>{isOwner ? "Seu workspace privado está pronto." : "A pesquisa pública começa aqui."}</h2><p>{isOwner ? "Sua conta reconhecida pelo ChatGPT pode abrir candles, snapshot, replay de portfólio e dados locais. Visitantes continuam vendo apenas a superfície pública." : "Qualquer pessoa pode conhecer o método e explorar a interface pública. A área de dados locais permanece reservada ao proprietário do laboratório."}</p></div>
+          <div><div className="eyebrow">Acesso</div><h2>{isOwner ? "Seu workspace privado está pronto." : "Comece pela experiência pública."}</h2><p>{isOwner ? "Sua conta reconhecida pelo ChatGPT pode abrir candles, snapshot, replay de portfólio e dados locais. Visitantes continuam vendo apenas a apresentação pública." : "Conheça as ferramentas, entenda as métricas e entre no aplicativo quando quiser. Dados locais e controles privados ficam reservados ao proprietário."}</p></div>
           {isOwner ? <button className="button button-primary" onClick={() => setActiveView("overview")}>Entrar no workspace →</button> : viewer ? <span className="access-note">Sua conta tem acesso à camada pública.</span> : <a className="button button-primary" href={signInHref}>Entrar com ChatGPT →</a>}
         </section>
       </section>
@@ -1478,13 +1478,13 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     return (
       <main className="public-shell">
         <header className="public-header">
-          <div className="public-brand"><AppMark /><div><strong>TradingLAB</strong><span>Quant / systematic research lab</span></div></div>
+          <div className="public-brand"><AppMark /><div><strong>TradingLAB</strong><span>Trading tools · decisão com controle</span></div></div>
           <div className="public-header-actions">
             {viewer ? <button className="auth-link auth-link-primary" onClick={() => setActiveView("overview")}>Abrir aplicativo</button> : <a className="auth-link auth-link-primary" href={signInHref}>Entrar com ChatGPT</a>}
           </div>
         </header>
         <div className="public-content">{renderLanding()}</div>
-        <footer className="public-footer"><span>TradingLAB · evidência antes da execução</span><span>Sem ordens externas · sem capital real</span></footer>
+        <footer className="public-footer"><span>TradingLAB · clareza antes da execução</span><span>Sem ordens externas · sem capital real</span></footer>
       </main>
     );
   }
