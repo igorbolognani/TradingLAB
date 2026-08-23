@@ -1,6 +1,7 @@
 "use client";
 
 import type { ChangeEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type ViewId = "landing" | "overview" | "market" | "experiments" | "portfolio" | "provenance";
@@ -1859,7 +1860,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     return (
       <main className="public-shell">
         <header className="public-header">
-          <div className="public-brand"><AppMark /><div><strong>TradingLAB</strong><span>Trading tools · decisão com controle</span></div></div>
+          <div className="public-brand"><Image className="public-logo" src="/tradinglab-logo.svg" width={430} height={112} alt="TradingLAB — Trading tools · decisão com controle" priority /></div>
           <nav className="public-tool-nav" aria-label="Atalhos da apresentação"><a href="#market-preview">Mercado</a><a href="#public-features">Ferramentas</a><a href="#public-how-to-use">Como usar</a></nav>
           <div className="public-header-actions">
             {viewer ? <button className="auth-link auth-link-primary" onClick={() => setActiveView("overview")}>Abrir aplicativo</button> : <a className="auth-link auth-link-primary" href={signInHref}>Entrar com ChatGPT</a>}
