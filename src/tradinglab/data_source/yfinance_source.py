@@ -5,9 +5,21 @@ from datetime import date
 from typing import Any
 
 import pandas as pd
-import yfinance as yf
 
 from tradinglab.constants import ASSETS, REQUESTED_END_EXCLUSIVE, REQUESTED_START
+
+
+def _load_yfinance() -> Any:
+    """Load the private Yahoo connector only when that path is requested."""
+
+    try:
+        import yfinance as yf
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            "the private Yahoo path is optional; install it with "
+            "`uv sync --extra yahoo --all-groups`"
+        ) from exc
+    return yf
 
 
 @dataclass(frozen=True)
@@ -81,6 +93,7 @@ class YFinanceSource:
 
         if symbol not in request.symbols:
             raise ValueError(f"{symbol} is not declared in this retrieval request")
+        yf = _load_yfinance()
         arguments = self.query_arguments(request)
         # yfinance 1.6.0 deprecated the per-call raise_errors argument in favor
         # of this explicit process configuration.

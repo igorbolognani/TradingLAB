@@ -20,6 +20,7 @@ type RowInput = Record<string, unknown>;
 
 type Candle = {
   event_time: string;
+  receive_time_utc?: string | null;
   session: string;
   open: number | null;
   high: number | null;
@@ -30,6 +31,7 @@ type Candle = {
   sma_50?: number | null;
   sma_200?: number | null;
   atr_14?: number | null;
+  is_complete?: boolean | null;
 };
 
 type CandlePayload = {
@@ -41,24 +43,29 @@ type CandlePayload = {
   source: {
     provider: string;
     provider_version: string;
-    retrieved_at: string;
+    retrieved_at: string | null;
+    ingested_at?: string | null;
     dataset_id: string;
-    dataset_checksum: string;
-    manifest_hash: string;
+    dataset_checksum: string | null;
+    manifest_hash: string | null;
     exchange_calendar: string;
     source_timezone: string;
     normalized_timezone: string;
     price_basis_id: string;
     normalization_version: string;
     corporate_actions_preserved: boolean;
+    raw_rows_redistributable?: boolean;
   };
   freshness: {
     mode: string;
     last_event_time: string | null;
     last_session: string;
-    bar_is_complete: boolean;
+    bar_is_complete: boolean | null;
     realtime_active: boolean;
     latency_ms: number | null;
+    latency_scope?: string | null;
+    data_age_seconds?: number | null;
+    observed_at?: string | null;
     message: string;
   };
   quality: {
@@ -69,8 +76,11 @@ type CandlePayload = {
     missing_value_count: number;
     invalid_ohlc_count: number;
     missing_session_count: number;
+    incomplete_count?: number;
+    unknown_completeness_count?: number;
     errors: string[];
     warnings: string[];
+    manifest_validation?: { valid: boolean; source_file?: string };
   };
   calculated: {
     latest: {
@@ -194,6 +204,177 @@ function parseCsvLine(line: string): string[] {
   }
   values.push(current.trim());
   return values;
+}
+
+function canonicalValue(values: Record<string, string>, aliases: string[]): string | undefined {
+  for (const alias of aliases) {
+    const value = values[alias.toLowerCase()];
+    if (value !== undefined && value.trim() !== "") return value.trim();
+  }
+  return undefined;
+}
+
+function parseCandleNumber(value: string | undefined, field: string): number {
+  const parsed = Number(value ?? "");
+  if (!Number.isFinite(parsed)) throw new Error(`${field} inválido`);
+  return parsed;
+}
+
+function parseCandleTimestamp(value: string | undefined, field: string): string {
+  if (!value) throw new Error(`${field} ausente`);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new Error(`${field} precisa informar horário UTC`);
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) throw new Error(`${field} inválido`);
+  return parsed.toISOString();
+}
+
+function parseCandleBoolean(value: string | undefined): boolean | null {
+  if (!value) return null;
+  if (["1", "true", "yes", "y"].includes(value.toLowerCase())) return true;
+  if (["0", "false", "no", "n"].includes(value.toLowerCase())) return false;
+  throw new Error("is_complete inválido");
+}
+
+function medianNumber(values: number[]): number | null {
+  if (!values.length) return null;
+  const ordered = [...values].sort((left, right) => left - right);
+  const middle = Math.floor(ordered.length / 2);
+  return ordered.length % 2 ? ordered[middle] : (ordered[middle - 1] + ordered[middle]) / 2;
+}
+
+function parseCandleFile(text: string, filename: string): CandlePayload {
+  const lines = text.split(/\r?\n/).filter((line) => line.trim());
+  if (lines.length < 2) throw new Error("arquivo sem linhas de candles");
+  const headers = parseCsvLine(lines[0]).map((header) => header.toLowerCase());
+  const records = lines.slice(1).map((line) => {
+    const cells = parseCsvLine(line);
+    return Object.fromEntries(headers.map((header, index) => [header, cells[index] ?? ""]));
+  });
+  const sourceSymbol = canonicalValue(records[0], ["symbol", "ticker"]) ?? "IMPORT";
+  const selected = records.filter(
+    (record) => (canonicalValue(record, ["symbol", "ticker"]) ?? sourceSymbol) === sourceSymbol,
+  );
+  const candles: Candle[] = selected.map((record, index) => {
+    const eventTime = parseCandleTimestamp(
+      canonicalValue(record, ["event_time_utc", "bar_start_utc", "timestamp_utc", "timestamp", "datetime", "date"]),
+      `event_time_utc na linha ${index + 2}`,
+    );
+    const open = parseCandleNumber(canonicalValue(record, ["open"]), "open");
+    const high = parseCandleNumber(canonicalValue(record, ["high"]), "high");
+    const low = parseCandleNumber(canonicalValue(record, ["low"]), "low");
+    const close = parseCandleNumber(canonicalValue(record, ["close"]), "close");
+    const volume = parseCandleNumber(canonicalValue(record, ["volume"]), "volume");
+    if (open <= 0 || high <= 0 || low <= 0 || close <= 0 || volume < 0) throw new Error(`OHLCV inválido na linha ${index + 2}`);
+    if (high < Math.max(open, close, low) || low > Math.min(open, close, high)) throw new Error(`relação OHLC inválida na linha ${index + 2}`);
+    const receive = canonicalValue(record, ["receive_time_utc"]);
+    return {
+      event_time: eventTime,
+      receive_time_utc: receive ? parseCandleTimestamp(receive, "receive_time_utc") : null,
+      session: canonicalValue(record, ["session_date"]) ?? eventTime.slice(0, 10),
+      open,
+      high,
+      low,
+      close,
+      volume,
+      is_complete: parseCandleBoolean(canonicalValue(record, ["is_complete"])),
+    };
+  });
+  if (!candles.length) throw new Error("nenhum candle compatível encontrado");
+  const duplicateCount = candles.length - new Set(candles.map((candle) => candle.event_time)).size;
+  const outOfOrderCount = candles.slice(1).filter((candle, index) => candle.event_time < candles[index].event_time).length;
+  if (duplicateCount || outOfOrderCount) throw new Error("arquivo possui timestamps duplicados ou fora de ordem");
+
+  const closes = candles.map((candle) => candle.close ?? 0);
+  const trueRanges = candles.map((candle, index) => {
+    const previousClose = index ? closes[index - 1] : candle.close ?? 0;
+    return Math.max(candle.high! - candle.low!, Math.abs(candle.high! - previousClose), Math.abs(candle.low! - previousClose));
+  });
+  const rolling = (values: number[], window: number, index: number): number | null =>
+    index + 1 < window ? null : values.slice(index + 1 - window, index + 1).reduce((sum, value) => sum + value, 0) / window;
+  candles.forEach((candle, index) => {
+    candle.sma_20 = rolling(closes, 20, index);
+    candle.sma_50 = rolling(closes, 50, index);
+    candle.sma_200 = rolling(closes, 200, index);
+    candle.atr_14 = rolling(trueRanges, 14, index);
+  });
+  const latest = candles[candles.length - 1];
+  const previousClose = candles.length > 1 ? candles[candles.length - 2].close : null;
+  const change = previousClose == null ? null : latest.close! - previousClose!;
+  const volumeWindow = candles.slice(-20).map((candle) => candle.volume!);
+  const volumeMedian = medianNumber(volumeWindow);
+  const receiveTimes = candles.flatMap((candle) => (candle.receive_time_utc ? [Date.parse(candle.receive_time_utc) - Date.parse(candle.event_time)] : []));
+  const observedAt = new Date();
+  const completeValues = candles.map((candle) => candle.is_complete);
+  const barIsComplete = completeValues.every((value) => value === true) ? true : completeValues.some((value) => value === false) ? false : null;
+  const provider = canonicalValue(records[0], ["provider"]) ?? `arquivo: ${filename}`;
+  const providerVersion = canonicalValue(records[0], ["provider_version"]) ?? "tradinglab.candle.v1";
+  const priceBasis = canonicalValue(records[0], ["price_basis"]) ?? "unknown";
+  const timeframe = canonicalValue(records[0], ["interval", "timeframe"]) ?? "unknown";
+  const unknownCompleteness = completeValues.filter((value) => value == null).length;
+  const warnings = [
+    unknownCompleteness ? `${unknownCompleteness} candles sem completude informada` : "",
+    receiveTimes.length ? "" : "receive_time_utc ausente; latência não medida",
+  ].filter(Boolean);
+  return {
+    symbol: sourceSymbol,
+    timeframe,
+    candles,
+    returned_row_count: candles.length,
+    available_row_count: candles.length,
+    source: {
+      provider,
+      provider_version: providerVersion,
+      retrieved_at: null,
+      ingested_at: observedAt.toISOString(),
+      dataset_id: `file:${filename}`,
+      dataset_checksum: null,
+      manifest_hash: null,
+      exchange_calendar: "unknown",
+      source_timezone: "UTC",
+      normalized_timezone: "UTC",
+      price_basis_id: priceBasis,
+      normalization_version: "tradinglab.candle.v1",
+      corporate_actions_preserved: false,
+      raw_rows_redistributable: false,
+    },
+    freshness: {
+      mode: "browser_file",
+      last_event_time: latest.event_time,
+      last_session: latest.session,
+      bar_is_complete: barIsComplete,
+      realtime_active: false,
+      latency_ms: medianNumber(receiveTimes),
+      latency_scope: receiveTimes.length ? "event_to_receive" : null,
+      data_age_seconds: Math.max(0, (observedAt.getTime() - Date.parse(latest.event_time)) / 1000),
+      observed_at: observedAt.toISOString(),
+      message: "Arquivo externo validado no navegador; não é um feed realtime.",
+    },
+    quality: {
+      status: warnings.length ? "warning" : "pass",
+      row_count: candles.length,
+      duplicate_timestamp_count: 0,
+      out_of_order_count: 0,
+      missing_value_count: 0,
+      invalid_ohlc_count: 0,
+      missing_session_count: 0,
+      incomplete_count: completeValues.filter((value) => value === false).length,
+      unknown_completeness_count: unknownCompleteness,
+      errors: [],
+      warnings,
+      manifest_validation: { valid: true, source_file: filename },
+    },
+    calculated: {
+      latest: { open: latest.open, high: latest.high, low: latest.low, close: latest.close, volume: latest.volume },
+      change,
+      change_pct: change == null || previousClose == null ? null : change / previousClose,
+      session_range_pct: (latest.high! - latest.low!) / latest.close!,
+      atr_14: latest.atr_14 ?? null,
+      sma_20: latest.sma_20 ?? null,
+      sma_50: latest.sma_50 ?? null,
+      sma_200: latest.sma_200 ?? null,
+      volume_vs_20_session_median: volumeMedian ? latest.volume! / volumeMedian : null,
+    },
+  };
 }
 
 function parseCsv(text: string): DashboardRow[] {
@@ -423,19 +604,29 @@ export default function Home() {
   const [candlePayload, setCandlePayload] = useState<CandlePayload | null>(null);
   const [isLoadingCandles, setIsLoadingCandles] = useState(false);
   const [candleNotice, setCandleNotice] = useState("");
+  const [candleSource, setCandleSource] = useState<"snapshot" | "external_file" | "browser_file">("snapshot");
+  const [externalFileAvailable, setExternalFileAvailable] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const candleFileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let active = true;
     fetch("http://127.0.0.1:8787/api/health")
       .then(async (response) => {
         if (!response.ok) throw new Error("local API unavailable");
-        return (await response.json()) as { dataset_ids?: string[]; recommended_dataset_id?: string | null };
+        return (await response.json()) as {
+          dataset_ids?: string[];
+          recommended_dataset_id?: string | null;
+          capabilities?: { configured_external_file?: boolean };
+        };
       })
       .then((payload) => {
         if (!active) return;
         setLocalApiAvailable(true);
         setLocalDatasetId(payload.recommended_dataset_id ?? payload.dataset_ids?.at(-1) ?? "");
+        const hasExternalFile = Boolean(payload.capabilities?.configured_external_file);
+        setExternalFileAvailable(hasExternalFile);
+        if (!payload.recommended_dataset_id && hasExternalFile) setCandleSource("external_file");
       })
       .catch(() => {
         if (active) setLocalApiAvailable(false);
@@ -509,6 +700,23 @@ export default function Home() {
     }
   }
 
+  async function handleCandleFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      const payload = parseCandleFile(await file.text(), file.name);
+      setCandlePayload(payload);
+      setCandleSource("browser_file");
+      setCandleSymbol(payload.symbol);
+      setCandleNotice(`${payload.returned_row_count.toLocaleString("en-US")} candles reais importados no navegador; nenhum dado foi enviado ao servidor.`);
+    } catch (error) {
+      setCandlePayload(null);
+      setCandleNotice(`Não foi possível ler o arquivo de candles: ${error instanceof Error ? error.message : "formato inválido"}.`);
+    } finally {
+      event.target.value = "";
+    }
+  }
+
   function resetData() {
     setRows(EMPTY_ROWS);
     setDataLabel("No dataset loaded");
@@ -555,19 +763,21 @@ export default function Home() {
   }
 
   async function loadCandles() {
-    if (!localApiAvailable || !localDatasetId) {
+    if (candleSource === "browser_file") {
+      setCandleNotice("A fonte atual é um arquivo carregado no navegador; selecione outra fonte para atualizar.");
+      return;
+    }
+    if (!localApiAvailable || (candleSource === "snapshot" && !localDatasetId)) {
       setCandleNotice("Inicie `uv run tradinglab-dashboard` para carregar o snapshot real local.");
       return;
     }
     setIsLoadingCandles(true);
     setCandleNotice("Validando manifesto, checksum e candles…");
     try {
-      const query = new URLSearchParams({
-        dataset_id: localDatasetId,
-        symbol: candleSymbol,
-        limit: candleLimit,
-      });
-      const response = await fetch(`http://127.0.0.1:8787/api/candles?${query.toString()}`);
+      const query = new URLSearchParams({ symbol: candleSymbol, limit: candleLimit });
+      if (candleSource === "snapshot") query.set("dataset_id", localDatasetId);
+      const endpoint = candleSource === "external_file" ? "api/candles-file" : "api/candles";
+      const response = await fetch(`http://127.0.0.1:8787/${endpoint}?${query.toString()}`);
       const payload = (await response.json()) as CandlePayload & { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "snapshot recusado");
       setCandlePayload(payload);
@@ -585,7 +795,7 @@ export default function Home() {
       <>
         <section className="hero-grid">
           <div>
-            <div className="eyebrow">Research control room / V0.6</div>
+            <div className="eyebrow">Research control room / V1.0</div>
             <h1>Transforme hipóteses em evidência reproduzível.</h1>
             <p className="hero-copy">
               Um painel único para explorar os resultados do TradingLAB sem misturar
@@ -605,7 +815,7 @@ export default function Home() {
             <div className="note-icon">⌁</div>
             <div>
               <strong>Estado do laboratório</strong>
-              <p>V0.1 congelada · V0.2 reproduzida · V0.6 em referência</p>
+              <p>V0.1 congelada · V0.2 reproduzida · V1.0 research operacional</p>
             </div>
             <span className="status-dot" aria-label="ativo" />
           </div>
@@ -772,14 +982,15 @@ export default function Home() {
           <div><div className="eyebrow">Market data / local snapshot</div><h1>Candles completos, com origem visível.</h1></div>
           <span className={`api-badge ${localApiAvailable ? "api-online" : "api-offline"}`}><span /> {localApiAvailable ? "Snapshot local disponível" : "API local offline"}</span>
         </div>
-        <div className="market-controls panel">
-          <div className="panel-kicker">Data controls</div>
-          <h2>Escolha o ativo e o recorte</h2>
-          <p className="panel-copy">O painel consulta somente os dados reais já congelados no seu computador. Não há preço gerado, preenchimento automático ou conexão com broker.</p>
+          <div className="market-controls panel">
+            <div className="panel-kicker">Data controls</div>
+            <h2>Escolha o ativo e o recorte</h2>
+          <p className="panel-copy">Escolha entre o snapshot privado, um arquivo externo/licenciado configurado localmente ou um arquivo que ficará somente neste navegador. Não há preço gerado nem conexão com broker.</p>
           <div className="field-grid market-field-grid">
+            <label htmlFor="candle-source">Fonte<select id="candle-source" value={candleSource} onChange={(event) => setCandleSource(event.target.value as "snapshot" | "external_file" | "browser_file")}><option value="snapshot" disabled={!localDatasetId}>Snapshot privado Yahoo</option><option value="external_file" disabled={!externalFileAvailable}>Arquivo externo configurado</option><option value="browser_file" disabled={!candlePayload || candleSource !== "browser_file"}>Arquivo deste navegador</option></select></label>
             <label htmlFor="candle-symbol">Ativo<select id="candle-symbol" value={candleSymbol} onChange={(event) => setCandleSymbol(event.target.value)}>{ASSETS.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
             <label htmlFor="candle-limit">Candles recentes<select id="candle-limit" value={candleLimit} onChange={(event) => setCandleLimit(event.target.value)}><option value="120">120</option><option value="240">240</option><option value="500">500</option><option value="1000">1000</option></select></label>
-            <div className="market-action"><button className="button button-primary" onClick={() => void loadCandles()} disabled={isLoadingCandles}>{isLoadingCandles ? "Validando…" : "Carregar candles"}</button><span>{localDatasetId || "nenhum dataset detectado"}</span></div>
+            <div className="market-action"><div className="market-action-buttons"><button className="button button-primary" onClick={() => void loadCandles()} disabled={isLoadingCandles || candleSource === "browser_file"}>{isLoadingCandles ? "Validando…" : "Carregar candles"}</button><button className="button button-outline" onClick={() => candleFileInput.current?.click()}>Importar CSV</button><input ref={candleFileInput} className="visually-hidden" type="file" accept=".csv,text/csv" onChange={(event) => void handleCandleFile(event)} /></div><span>{candleSource === "external_file" ? "arquivo externo configurado" : localDatasetId || "nenhum dataset detectado"}</span></div>
           </div>
           {candleNotice ? <div className="notice" role="status">{candleNotice}</div> : null}
         </div>
@@ -788,10 +999,12 @@ export default function Home() {
           <>
             <div className="source-strip">
               <span className="source-pill">{market.source.provider} {market.source.provider_version}</span>
-              <span>coletado em {new Date(market.source.retrieved_at).toLocaleString("pt-BR")}</span>
+              <span>{market.source.retrieved_at ? `coletado em ${new Date(market.source.retrieved_at).toLocaleString("pt-BR")}` : `processado em ${market.source.ingested_at ? new Date(market.source.ingested_at).toLocaleString("pt-BR") : "horário desconhecido"}`}</span>
               <span>última sessão {market.freshness.last_session}</span>
               <span className="quality-pill">qualidade: {market.quality.status}</span>
-              <span className="historical-pill">histórico · não realtime</span>
+              <span className="historical-pill">{market.freshness.realtime_active ? "realtime ativo" : "histórico · não realtime"}</span>
+              <span className="source-pill">idade: {market.freshness.data_age_seconds == null ? "desconhecida" : `${Math.round(market.freshness.data_age_seconds / 86400)} dias`}</span>
+              <span className="source-pill">latência: {market.freshness.latency_ms == null ? "não medida" : `${market.freshness.latency_ms.toFixed(1)} ms`}</span>
             </div>
             <section className="metric-grid market-metric-grid" aria-label="Métricas calculadas do candle">
               <MetricCard label="Último close" value={formatPrice(latest?.close)} detail={`${market.symbol} · basis normalizado`} tone="blue" />
@@ -815,6 +1028,8 @@ export default function Home() {
                   <div><span>CALENDAR</span><strong>{market.source.exchange_calendar}</strong></div>
                   <div><span>PRICE BASIS</span><strong>{market.source.price_basis_id}</strong></div>
                   <div><span>ACTIONS</span><strong>{market.source.corporate_actions_preserved ? "preservadas" : "não informado"}</strong></div>
+                  <div><span>COMPLETUDE</span><strong>{market.freshness.bar_is_complete == null ? "desconhecida" : market.freshness.bar_is_complete ? "encerradas" : "há barras abertas"}</strong></div>
+                  <div><span>LATENCY SCOPE</span><strong>{market.freshness.latency_scope ?? "não disponível"}</strong></div>
                 </div>
                 <div className="hash-box"><span>DATASET</span><code>{market.source.dataset_id}</code><span>MANIFEST SHA-256</span><code>{market.source.manifest_hash}</code></div>
               </article>
@@ -863,7 +1078,7 @@ export default function Home() {
           <article className="panel provenance-main"><div className="panel-kicker">Data contract</div><h2>O que esta interface aceita</h2><div className="contract-list"><div><span className="contract-key">RAW</span><p>Dados do provedor preservados separadamente; não são embutidos no site público.</p></div><div><span className="contract-key">ACTIONS</span><p>Ações corporativas permanecem auditáveis e não são recarregadas como um detalhe invisível.</p></div><div><span className="contract-key">NORMALIZED</span><p>O painel aceita <code>all_trials.csv</code> ou JSON exportado e calcula o resumo no navegador.</p></div><div><span className="contract-key">HASH</span><p>Dataset, manifesto, commit e lockfile continuam sendo a autoridade; o painel é uma camada de leitura.</p></div></div></article>
           <article className="panel safety-panel"><div className="safety-mark">0</div><div className="panel-kicker">Safety boundary</div><h2>Research only</h2><p>Não existe no site SDK de broker, credencial, endpoint de ordem, paper trading, live trading ou promoção automática.</p><div className="safety-tags"><span>NO BROKER</span><span>NO CAPITAL</span><span>NO AUTO-PROMOTION</span></div></article>
         </div>
-        <article className="panel provenance-table"><div className="panel-heading"><div><div className="panel-kicker">Evidence status</div><h2>Mapa de entregas</h2></div></div><div className="status-table"><div><strong>V0.1</strong><span className="status-complete">COMPLETA</span><p>Backtest causal, registry append-only, holdout controlado.</p></div><div><strong>V0.2</strong><span className="status-complete">REPRODUZIDA</span><p>60/60 configurações primárias no gate independente.</p></div><div><strong>V0.3–V0.5</strong><span className="status-bridge">BRIDGES</span><p>Contratos e simuladores sem side effects externos.</p></div><div><strong>V0.6</strong><span className="status-current">UTILIZÁVEL</span><p>Referência de portfólio e painel visual sem otimizador.</p></div></div></article>
+        <article className="panel provenance-table"><div className="panel-heading"><div><div className="panel-kicker">Evidence status</div><h2>Mapa de entregas</h2></div></div><div className="status-table"><div><strong>V0.1</strong><span className="status-complete">COMPLETA</span><p>Backtest causal, registry append-only, holdout controlado.</p></div><div><strong>V0.2</strong><span className="status-complete">REPRODUZIDA</span><p>60/60 configurações primárias no gate independente.</p></div><div><strong>V0.3–V0.5</strong><span className="status-bridge">BRIDGES</span><p>Contratos e simuladores sem side effects externos.</p></div><div><strong>V0.6</strong><span className="status-current">UTILIZÁVEL</span><p>Referência de portfólio e painel visual sem otimizador.</p></div><div><strong>V1.0</strong><span className="status-current">RESEARCH</span><p>Interface privada, candles provider-neutral e BYOD auditável.</p></div></div></article>
       </section>
     );
   }
@@ -875,12 +1090,12 @@ export default function Home() {
       <aside className="sidebar">
         <div className="brand"><AppMark /><div><strong>TradingLAB</strong><span>Research workspace</span></div></div>
         <div className="sidebar-section"><div className="sidebar-label">Workspace</div><nav>{([ ["overview", "Overview", "◈"], ["market", "Market data", "▥"], ["experiments", "Experiments", "⌘"], ["portfolio", "Portfolio", "◒"], ["provenance", "Data & provenance", "⌬"] ] as [ViewId, string, string][]).map(([id, label, icon]) => <button className={activeView === id ? "nav-item active" : "nav-item"} onClick={() => setActiveView(id)} key={id}><span aria-hidden="true">{icon}</span>{label}{id === "experiments" ? <em>run</em> : null}</button>)}</nav></div>
-        <div className="sidebar-section sidebar-bottom"><div className="sidebar-label">Safety mode</div><div className="safety-status"><span className="status-dot" /><div><strong>Research only</strong><small>External execution disabled</small></div></div><div className="version-box"><span>Current build</span><strong>V0.6 reference</strong><small>local + Sites UI</small></div></div>
+        <div className="sidebar-section sidebar-bottom"><div className="sidebar-label">Safety mode</div><div className="safety-status"><span className="status-dot" /><div><strong>Research only</strong><small>External execution disabled</small></div></div><div className="version-box"><span>Current build</span><strong>V1.0 research</strong><small>private + local + BYOD</small></div></div>
       </aside>
       <div className="main-column">
         <header className="topbar"><div className="mobile-brand"><AppMark /><strong>TradingLAB</strong></div><div className="breadcrumb"><span>TradingLAB</span><b>/</b><strong>{activeView === "overview" ? "Overview" : activeView === "market" ? "Market data" : activeView === "experiments" ? "Experiments" : activeView === "portfolio" ? "Portfolio" : "Data & provenance"}</strong></div><div className="topbar-right"><span className="sync-label"><span className="status-dot" /> {localApiAvailable ? "Snapshot local conectado" : "Evidence local"}</span><button className="avatar" aria-label="Research workspace">IG</button></div></header>
         <div className="content"><div className="filter-strip"><div className="filter-title"><span className="filter-icon">≡</span><strong>View filters</strong><span>{filteredRows.length} rows</span></div><div className="filter-control"><span className="filter-control-label">Strategy</span><select aria-label="Strategy" value={strategy} onChange={(event) => setStrategy(event.target.value)}><option value="ALL">All strategies</option>{STRATEGIES.map((item) => <option key={item} value={item}>{labelForStrategy(item)}</option>)}</select></div><div className="filter-control"><span className="filter-control-label">Asset</span><select aria-label="Asset" value={asset} onChange={(event) => setAsset(event.target.value)}><option value="ALL">All assets</option>{ASSETS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><div className="filter-control"><span className="filter-control-label">Split</span><select aria-label="Split" value={split} onChange={(event) => setSplit(event.target.value)}><option value="ALL">All splits</option>{SPLITS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><button className="reset-button" onClick={resetData}>Limpar dados</button></div>{viewContent}</div>
-        <footer className="footer"><span>TradingLAB · Quant / Systematic Research Lab</span><span>V0.1 frozen · V0.2 reproduced · V0.6 reference</span></footer>
+        <footer className="footer"><span>TradingLAB · Quant / Systematic Research Lab</span><span>V0.1 frozen · V0.2 reproduced · V1.0 research operational</span></footer>
       </div>
     </main>
   );

@@ -71,6 +71,9 @@ uma promessa de que a estratégia funciona no futuro.
   conexão de broker nem envio de ordem.
 - **V0.6:** referência de portfólio com caixa compartilhado e pesos declarados,
   sem otimização automática.
+- **V1.0:** research operacional privado com interface Sites, candles
+  provider-neutral, BYOD/arquivo licenciado, diagnóstico de frescor e separação
+  explícita dos gates realtime/paper/live.
 - **Interface:** painel Sites/local para filtros, importação de resultados e
   execução local Development/Validation; ele começa vazio para não inventar
   números.

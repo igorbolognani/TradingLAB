@@ -54,6 +54,11 @@ licensed. The current provider comparison and recommended selection process are
 in [`docs/DATA_PROVIDER_RESEARCH.md`](DATA_PROVIDER_RESEARCH.md). This is a
 separate data-provider decision, not a frontend change.
 
+V1.0 also defines a provider-neutral `tradinglab.candle.v1` CSV path. It can
+be validated and viewed locally without installing yfinance; the private
+Yahoo connector is an optional local extra. See
+[`docs/V1_0_SPEC.md`](V1_0_SPEC.md).
+
 ## What is required for paper/live execution
 
 Paper trading and live trading must be separate, explicitly approved phases.

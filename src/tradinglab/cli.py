@@ -7,7 +7,11 @@ from datetime import date
 from pathlib import Path
 
 from tradinglab.constants import ASSETS, TEMPORAL_SPLITS
-from tradinglab.data import SnapshotStore
+from tradinglab.data import (
+    SnapshotStore,
+    inspect_canonical_candles,
+    load_candle_csv,
+)
 from tradinglab.data_source import RetrievalRequest
 from tradinglab.experiments import (
     ExperimentRunner,
@@ -59,6 +63,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     validate = subparsers.add_parser("validate-dataset", help="validate a snapshot")
     validate.add_argument("--dataset-id", required=True)
+
+    validate_candles = subparsers.add_parser(
+        "validate-candle-file",
+        help="validate a provider-neutral OHLCV CSV without network access",
+    )
+    validate_candles.add_argument("--path", type=Path, required=True)
+    validate_candles.add_argument("--symbol", default=None)
 
     run = subparsers.add_parser("run", help="run one explicit registered trial")
     run.add_argument("--spec", type=Path, required=True)
@@ -136,6 +147,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(
             json.dumps(
                 snapshots.validate_dataset(args.dataset_id), indent=2, sort_keys=True
+            )
+        )
+        return 0
+    if args.command == "validate-candle-file":
+        candle_rows = load_candle_csv(args.path.resolve(), symbol=args.symbol)
+        print(
+            json.dumps(
+                {
+                    "path": str(args.path.resolve()),
+                    "symbol": args.symbol,
+                    "quality": inspect_canonical_candles(candle_rows),
+                },
+                indent=2,
+                sort_keys=True,
             )
         )
         return 0

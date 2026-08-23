@@ -42,7 +42,12 @@ test("keeps site assets inside the app source", async () => {
   assert.match(page, /all_trials\.csv/);
   assert.match(page, /run-battery/);
   assert.match(page, /api\/candles/);
+  assert.match(page, /api\/candles-file/);
+  assert.match(page, /Importar CSV/);
+  assert.match(page, /browser_file/);
   assert.match(page, /realtime_active/);
+  assert.match(page, /latency_ms/);
+  assert.match(page, /V1\.0/);
   assert.match(page, /Candles completos/);
   assert.match(page, /Project Holdout/);
   assert.match(layout, /lang="pt-BR"/);

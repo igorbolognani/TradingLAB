@@ -30,6 +30,17 @@ consultar os candles validados e as ações de Development/Validation. O serviç
 local aceita apenas as origens localhost e o domínio privado do Sites; ele não
 se torna um endpoint público de dados ou de ordens.
 
+Para usar uma fonte que não seja Yahoo/yfinance, configure um CSV próprio ou
+licenciado no servidor local:
+
+```bash
+uv run tradinglab-dashboard --candle-file /caminho/feed-licenciado.csv
+```
+
+Também é possível usar **Importar CSV** na tela Market data. Nesse modo o
+arquivo permanece no navegador. A interface mostra `realtime_active=false`
+até que um adaptador live licenciado seja implementado.
+
 ## Market data local
 
 Na navegação **Market data**, o painel consulta o snapshot validado pelo

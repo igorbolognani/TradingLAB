@@ -849,6 +849,10 @@ dependencies = [
     { name = "pandas" },
     { name = "pydantic" },
     { name = "pyyaml" },
+]
+
+[package.optional-dependencies]
+yahoo = [
     { name = "yfinance" },
 ]
 
@@ -870,8 +874,9 @@ requires-dist = [
     { name = "pandas", specifier = "==3.0.5" },
     { name = "pydantic", specifier = "==2.13.4" },
     { name = "pyyaml", specifier = "==6.0.3" },
-    { name = "yfinance", specifier = "==1.6.0" },
+    { name = "yfinance", marker = "extra == 'yahoo'", specifier = "==1.6.0" },
 ]
+provides-extras = ["yahoo"]
 
 [package.metadata.requires-dev]
 dev = [

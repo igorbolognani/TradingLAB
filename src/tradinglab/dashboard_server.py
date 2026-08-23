@@ -11,6 +11,7 @@ import argparse
 import json
 import re
 from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, ClassVar
@@ -18,10 +19,15 @@ from urllib.parse import parse_qs, urlparse
 
 from tradinglab.calendar import regular_sessions
 from tradinglab.data import (
+    CANONICAL_CANDLE_SCHEMA,
     SnapshotStore,
     calculate_candle_summary,
+    calculate_summary,
     inspect_candles,
+    inspect_canonical_candles,
+    load_candle_csv,
     serialize_candles,
+    serialize_canonical_candles,
 )
 from tradinglab.experiments import run_battery
 
@@ -158,6 +164,19 @@ def candle_payload(
             ),
             "realtime_active": False,
             "latency_ms": None,
+            "latency_scope": None,
+            "data_age_seconds": (
+                max(
+                    0.0,
+                    (
+                        datetime.now(UTC)
+                        - datetime.fromisoformat(str(quality["last_event_time"]))
+                    ).total_seconds(),
+                )
+                if quality.get("last_event_time")
+                else None
+            ),
+            "observed_at": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             "message": (
                 "Este endpoint serve um snapshot histórico local; "
                 "não é feed em tempo real."
@@ -165,6 +184,80 @@ def candle_payload(
         },
         "quality": quality,
         "calculated": calculate_candle_summary(frame),
+    }
+
+
+def canonical_candle_payload(
+    path: Path,
+    *,
+    symbol: str,
+    limit: int,
+) -> dict[str, Any]:
+    """Serve an explicitly configured non-Yahoo candle file."""
+
+    if not SYMBOL_PATTERN.fullmatch(symbol):
+        raise ValueError("symbol is invalid")
+    if limit < 1 or limit > MAX_CANDLE_ROWS:
+        raise ValueError(f"limit must be between 1 and {MAX_CANDLE_ROWS}")
+    rows = load_candle_csv(path, symbol=symbol)
+    quality = inspect_canonical_candles(rows)
+    quality["missing_value_count"] = 0
+    quality["invalid_ohlc_count"] = 0
+    quality["missing_session_count"] = 0
+    quality["manifest_validation"] = {
+        "valid": quality["status"] != "fail",
+        "source_file": path.name,
+    }
+    if quality["status"] == "fail":
+        raise ValueError("configured candle file failed quality validation")
+    first = rows[0]
+    complete_values = [row.is_complete for row in rows]
+    bar_is_complete: bool | None
+    if all(value is True for value in complete_values):
+        bar_is_complete = True
+    elif any(value is False for value in complete_values):
+        bar_is_complete = False
+    else:
+        bar_is_complete = None
+    return {
+        "symbol": symbol,
+        "timeframe": first.interval,
+        "candles": serialize_canonical_candles(rows, limit=limit),
+        "returned_row_count": min(limit, len(rows)),
+        "available_row_count": len(rows),
+        "source": {
+            "provider": first.provider,
+            "provider_version": first.provider_version,
+            "retrieved_at": None,
+            "ingested_at": quality["observed_at"],
+            "dataset_id": f"file:{path.name}",
+            "dataset_checksum": None,
+            "manifest_hash": None,
+            "exchange_calendar": first.venue,
+            "source_timezone": "UTC",
+            "normalized_timezone": "UTC",
+            "price_basis_id": first.price_basis,
+            "normalization_version": CANONICAL_CANDLE_SCHEMA,
+            "corporate_actions_preserved": False,
+            "raw_rows_redistributable": False,
+        },
+        "freshness": {
+            "mode": "configured_external_file",
+            "last_event_time": quality["last_event_time"],
+            "last_session": rows[-1].session_date.isoformat(),
+            "bar_is_complete": bar_is_complete,
+            "realtime_active": False,
+            "latency_ms": quality["latency_ms"],
+            "latency_scope": quality["latency_scope"],
+            "data_age_seconds": quality["data_age_seconds"],
+            "observed_at": quality["observed_at"],
+            "message": (
+                "Arquivo externo validado localmente; realtime só será ativado "
+                "por um adaptador de provedor explícito."
+            ),
+        },
+        "quality": quality,
+        "calculated": calculate_summary(rows),
     }
 
 
@@ -202,6 +295,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
     """Small JSON API bound to the local research checkout."""
 
     project_root: ClassVar[Path]
+    candle_file: ClassVar[Path | None] = None
 
     def _send_json(self, status: int, payload: Mapping[str, Any]) -> None:
         body = json.dumps(payload, sort_keys=True).encode("utf-8")
@@ -246,6 +340,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     "holdout_execution": False,
                     "dataset_ids": ids,
                     "recommended_dataset_id": recommended_dataset_id(self.project_root),
+                    "capabilities": {
+                        "private_yfinance_snapshot": bool(ids),
+                        "configured_external_file": self.candle_file is not None,
+                        "realtime_active": False,
+                        "latency_ms": None,
+                        "paper_execution": False,
+                        "live_execution": False,
+                    },
                 },
             )
             return
@@ -267,6 +369,24 @@ class DashboardHandler(BaseHTTPRequestHandler):
                     dataset_id=dataset_id,
                     symbol=symbol,
                     limit=limit,
+                )
+            except (OSError, ValueError) as exc:
+                self._send_json(400, {"error": str(exc)})
+                return
+            self._send_json(200, payload)
+            return
+        if parsed.path == "/api/candles-file":
+            if self.candle_file is None:
+                self._send_json(404, {"error": "no external candle file configured"})
+                return
+            query = parse_qs(parsed.query, keep_blank_values=True)
+            symbol = query.get("symbol", [""])[0].upper()
+            raw_limit = query.get("limit", ["240"])[0]
+            try:
+                payload = canonical_candle_payload(
+                    self.candle_file,
+                    symbol=symbol,
+                    limit=int(raw_limit),
                 )
             except (OSError, ValueError) as exc:
                 self._send_json(400, {"error": str(exc)})
@@ -311,7 +431,12 @@ class DashboardHandler(BaseHTTPRequestHandler):
         del format, args
 
 
-def serve(project_root: Path, host: str, port: int) -> None:
+def serve(
+    project_root: Path,
+    host: str,
+    port: int,
+    candle_file: Path | None = None,
+) -> None:
     """Serve the local API until interrupted."""
 
     if (
@@ -322,7 +447,7 @@ def serve(project_root: Path, host: str, port: int) -> None:
     handler = type(
         "TradingLabDashboardHandler",
         (DashboardHandler,),
-        {"project_root": project_root},
+        {"project_root": project_root, "candle_file": candle_file},
     )
     server = ThreadingHTTPServer((host, port), handler)
     print(f"TradingLAB local API listening on http://{host}:{port}")
@@ -340,8 +465,19 @@ def main() -> int:
     parser.add_argument("--project-root", type=Path, default=Path.cwd())
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8787)
+    parser.add_argument(
+        "--candle-file",
+        type=Path,
+        default=None,
+        help="explicit non-Yahoo canonical OHLCV CSV for the local dashboard",
+    )
     args = parser.parse_args()
-    serve(args.project_root.resolve(), args.host, args.port)
+    serve(
+        args.project_root.resolve(),
+        args.host,
+        args.port,
+        args.candle_file.resolve() if args.candle_file is not None else None,
+    )
     return 0
 
 

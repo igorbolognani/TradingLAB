@@ -28,7 +28,18 @@ around holdout governance.
 
 ## Knowledge gaps
 
-None currently.
+- **Provider live e licenciamento:** ainda falta escolher o dataset/plano que
+  autorizará display, cache e eventual uso pessoal/profissional. Isso importa
+  porque realtime e distribuição não são propriedades apenas do código.
+  Evidência atual: contrato `tradinglab.candle.v1`, pesquisa em
+  `docs/DATA_PROVIDER_RESEARCH.md` e documentação oficial dos candidatos.
+  Resolução: selecionar o fornecedor, guardar o contrato/limites no manifesto
+  e executar uma integração opt-in com credencial fora do Git.
+- **Latência ponta a ponta:** a V1.0 mede apenas
+  `event_time → receive_time` quando o arquivo traz os dois campos. Ainda não
+  há `ingest_time`, `display_time`, WebSocket ou orçamento de latência.
+  Resolução: implementar o adaptador live e um replay de eventos com relógios
+  observáveis.
 
 ## Resolved knowledge gaps
 

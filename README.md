@@ -68,6 +68,13 @@ uv run tradinglab registry --help
 uv run tradinglab reproduce --help
 ```
 
+O aplicativo base não importa yfinance. Para habilitar somente no seu
+computador o conector privado yfinance/Yahoo usado pelo V0.1:
+
+```bash
+uv sync --all-groups --extra yahoo
+```
+
 The generic `run` command cannot access Project Holdout. Non-control trials
 must name their exact matching registered Buy & Hold trial. The controlled
 holdout command is released only after the same clean experiment contains the
@@ -102,6 +109,28 @@ in this same repository:
 An actual Alpaca account, MT5 terminal, external alert delivery, or order
 submission remains a human-gated future integration and is intentionally absent
 from the repository.
+
+## V1.0 research operational
+
+V1.0 adds a provider-neutral candle contract alongside the private yfinance
+snapshot. A licensed export or BYOD CSV can be validated and displayed without
+using Yahoo or network access:
+
+```bash
+uv run tradinglab validate-candle-file \
+  --path /path/to/licensed-candles.csv \
+  --symbol SPY
+
+uv run tradinglab-dashboard \
+  --candle-file /path/to/licensed-candles.csv
+```
+
+The interface also imports the same CSV in the browser without uploading it.
+It reports source, provider version, event/receive timestamps, data age,
+completeness and measured latency scope. Realtime remains explicitly
+`realtime_active=false` until a licensed live adapter is selected and verified.
+The complete V1.0 contract and later gates are in
+[`docs/V1_0_SPEC.md`](docs/V1_0_SPEC.md).
 
 ## Research Control Room
 

@@ -9,6 +9,7 @@ def test_cli_exposes_only_declared_local_research_operations() -> None:
     for command in (
         "fetch",
         "validate-dataset",
+        "validate-candle-file",
         "run",
         "run-battery",
         "report",
