@@ -6,7 +6,12 @@ export const dynamic = "force-dynamic";
 
 export default async function AlpacaConnectPage() {
   const user = await getChatGPTUser();
-  const continueHref = user
+  const oauthConfigured = Boolean(
+    process.env.ALPACA_OAUTH_CLIENT_ID?.trim() &&
+      process.env.ALPACA_OAUTH_CLIENT_SECRET?.trim() &&
+      process.env.ALPACA_OAUTH_REDIRECT_URI?.trim(),
+  );
+  const continueHref = user && oauthConfigured
     ? "/api/alpaca/oauth/start?env=paper"
     : chatGPTSignInPath("/alpaca/connect");
   const paperTradingScopeEnabled = process.env.TRADINGLAB_OAUTH_PAPER_TRADING_SCOPE_ENABLED === "true";
@@ -51,8 +56,10 @@ export default async function AlpacaConnectPage() {
           <div className="oauth-scope-note">
             <strong>Current TradingLAB request</strong>
             <span>
-              Alpaca Paper · access to market-data endpoints · no trading scope
-              · no order submission until the pilot is explicitly enabled.
+              {oauthConfigured
+                ? "Alpaca Paper · access to market-data endpoints · no trading scope · no order submission until the pilot is explicitly enabled."
+                : "A conexão está preparada, mas o cadastro OAuth da Alpaca ainda não foi configurado no ambiente publicado."
+              }
             </span>
           </div>
 
@@ -63,9 +70,15 @@ export default async function AlpacaConnectPage() {
           </div>
 
           <div className="oauth-actions">
-            <a className="button button-primary" href={continueHref}>
-              {user ? "Continue to Alpaca →" : "Sign in with ChatGPT →"}
-            </a>
+            {user && !oauthConfigured ? (
+              <span className="button button-primary button-disabled" aria-disabled="true">
+                OAuth aguardando configuração
+              </span>
+            ) : (
+              <a className="button button-primary" href={continueHref}>
+                {user ? "Continue to Alpaca →" : "Sign in with ChatGPT →"}
+              </a>
+            )}
             <Link className="button button-quiet" href="/">
               Cancel
             </Link>
