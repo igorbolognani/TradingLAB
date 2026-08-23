@@ -1539,7 +1539,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
             </p>
             <div className="workspace-badges"><span>ORDENS DESATIVADAS</span><span>{isOwner ? "DADOS LOCAIS" : "ACESSO PÚBLICO"}</span>{isOwner ? <span>{alpacaConnection === "connected" ? "ALPACA PAPER · LEITURA" : "ALPACA OAUTH PENDENTE"}</span> : null}</div>
             <div className="workspace-actions">
-              {isOwner ? <><button className="button button-outline" onClick={() => setActiveView("market")}>Abrir Market data</button><button className="button button-outline" onClick={() => setActiveView("portfolio")}>Abrir Portfolio</button><a className="button button-primary" href="/api/alpaca/oauth/start?env=paper">{alpacaConnection === "connected" ? "Reconectar Alpaca Paper" : "Conectar Alpaca Paper"}</a></> : <span className="small-muted">Faça login como proprietário para a camada privada.</span>}
+              {isOwner ? <><button className="button button-outline" onClick={() => setActiveView("market")}>Abrir Market data</button><button className="button button-outline" onClick={() => setActiveView("portfolio")}>Abrir Portfolio</button><a className="button button-primary" href="/alpaca/connect">{alpacaConnection === "connected" ? "Reconectar Alpaca Paper" : "Conectar Alpaca Paper"}</a></> : <span className="small-muted">Faça login como proprietário para a camada privada.</span>}
             </div>
           </article>
           <article className="panel workspace-mode-card workspace-research-card">
