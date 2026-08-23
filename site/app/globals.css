@@ -287,3 +287,139 @@ td strong { color: var(--ink); font-size: 10px; }
   .chart-empty-state { min-height: 320px; }
   .chart-empty-grid { left: 20px; }
 }
+
+/* Mobile control room: keep the page readable and make every gesture explicit. */
+@media (max-width: 760px) {
+  html, body { overflow-x: clip; }
+  .public-header, .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 5px 16px rgb(34 59 94 / 6%);
+  }
+  .public-header {
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding-block: 12px;
+  }
+  .public-brand { min-width: 0; }
+  .public-brand strong { white-space: nowrap; }
+  .public-header-actions { gap: 8px; }
+  .public-tool-nav {
+    display: flex;
+    order: 3;
+    width: 100%;
+    margin: 0;
+    gap: 18px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding-top: 2px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .public-tool-nav::-webkit-scrollbar, .workspace-tabbar nav::-webkit-scrollbar, .chart-toolbar::-webkit-scrollbar { display: none; }
+  .public-tool-nav a { display: inline-flex; min-height: 30px; flex: 0 0 auto; align-items: center; }
+  .topbar { min-height: 62px; }
+  .topbar-right { min-width: 0; gap: 10px; }
+  .topbar-right .auth-link { padding-block: 8px; }
+  .workspace-tabbar {
+    position: sticky;
+    top: 62px;
+    z-index: 20;
+    box-shadow: 0 5px 16px rgb(34 59 94 / 5%);
+  }
+  .workspace-tabbar nav {
+    overscroll-behavior-x: contain;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .workspace-tab { min-height: 38px; padding-inline: 11px; }
+  .workspace-import-button { min-height: 38px; }
+  .filter-control { min-width: 0; }
+  .reset-button { flex-basis: 100%; padding-top: 2px; text-align: left; }
+  .panel-heading { flex-direction: column; gap: 10px; }
+  .api-badge { max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
+  .chart-workspace-card { min-width: 0; overflow: hidden; padding: 15px; }
+  .chart-workspace-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .chart-source-note, .chart-workspace-controls label { min-width: 0; width: auto; }
+  .chart-source-note { grid-column: 1 / -1; }
+  .chart-source-note strong { max-width: 100%; }
+  .chart-workspace-actions {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: auto;
+    gap: 8px;
+  }
+  .chart-workspace-actions .button { width: 100%; min-width: 0; }
+  .chart-workspace-actions button:only-of-type { grid-column: 1 / -1; }
+  .chart-market-summary { gap: 8px; }
+  .chart-market-summary > div { min-width: 0; padding-inline: 7px; }
+  .chart-market-summary strong { font-size: 11px; }
+  .chart-toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding: 7px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .chart-tool-group, .chart-indicator-group { flex: 0 0 auto; flex-wrap: nowrap; }
+  .chart-tool-button, .chart-indicator-button { min-height: 36px; padding-inline: 9px; }
+  .chart-toolbar-divider { display: block; flex: 0 0 auto; }
+  .chart-stage-crosshair .candle-canvas { touch-action: pan-y; }
+  .chart-stage-pan .candle-canvas,
+  .chart-stage-horizontal .candle-canvas,
+  .chart-stage-trend .candle-canvas,
+  .chart-stage-marker .candle-canvas { touch-action: none; }
+  .candle-canvas { height: 280px; }
+  .chart-tooltip {
+    top: 8px !important;
+    right: 8px;
+    left: auto !important;
+    width: min(205px, calc(100% - 16px));
+    min-width: 0;
+    max-width: calc(100% - 16px);
+  }
+  .chart-empty-state { min-height: 280px; }
+  .chart-empty-copy { width: calc(100% - 24px); max-width: 390px; padding: 17px; }
+  .chart-empty-copy .button { width: 100%; }
+  .chart-legend { gap: 9px 12px; line-height: 1.4; }
+  .table-wrap {
+    margin-inline: -4px;
+    padding-inline: 4px;
+    padding-bottom: 4px;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .source-detail-list > div { align-items: flex-start; }
+  .source-detail-list strong {
+    max-width: 58%;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    text-overflow: clip;
+  }
+  .hash-box code { overflow-wrap: anywhere; white-space: normal; }
+  .fill-row { grid-template-columns: 40px minmax(0, 1fr); gap: 6px 8px; }
+  .fill-row small { grid-column: 2; overflow-wrap: anywhere; white-space: normal; }
+  .portfolio-canvas { height: 240px; }
+  .hero-actions .button, .landing-access .button, .control-actions .button { width: 100%; }
+  .landing-trust { gap: 10px; line-height: 1.4; }
+}
+
+@media (max-width: 390px) {
+  .public-header, .topbar, .content, .public-content { padding-inline: 13px; }
+  .public-header-actions .auth-link-primary { padding-inline: 8px; }
+  .workspace-tabbar { margin-inline: -2px; }
+  .content { padding-top: 18px; }
+  .metric-card { padding: 12px; }
+  .metric-value { font-size: 19px; }
+  .chart-workspace-card { padding: 13px; }
+  .chart-market-summary > div { padding-inline: 5px; }
+}

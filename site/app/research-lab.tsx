@@ -850,7 +850,11 @@ function CandleChart({ candles, symbol }: { candles: Candle[]; symbol: string })
   function handlePointerDown(event: ReactPointerEvent<HTMLCanvasElement>) {
     const point = chartPoint(event.clientX, event.clientY);
     if (!point) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
+    // A touch on the inspection tool should still be able to scroll the page.
+    // Drawing and pan tools keep capture so their gesture remains inside the chart.
+    if (event.pointerType !== "touch" || tool !== "crosshair") {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
     setHover({ index: point.index, x: point.x, y: point.y });
     if (tool === "pan") {
       dragRef.current = { startX: point.x, start: viewWindow.start, end: viewWindow.end };
@@ -945,7 +949,7 @@ function CandleChart({ candles, symbol }: { candles: Candle[]; symbol: string })
         <button type="button" className="chart-tool-button chart-clear-button" onClick={() => setDrawings([])} disabled={!drawings.length}>Limpar</button>
       </div>
       <div className={`chart-stage chart-stage-${tool}`}>
-        <canvas ref={canvasRef} className="candle-canvas" aria-label={`Gráfico interativo de candles ${symbol}`} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={() => { if (!dragRef.current) setHover(null); }} onWheel={preventChartScroll} onDoubleClick={resetView} />
+        <canvas ref={canvasRef} className="candle-canvas" aria-label={`Gráfico interativo de candles ${symbol}`} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerCancel={handlePointerUp} onPointerLeave={() => { if (!dragRef.current) setHover(null); }} onWheel={preventChartScroll} onDoubleClick={resetView} />
         {activeCandle && hover ? <div className="chart-tooltip" style={{ left: `${Math.min(Math.max(hover.x + 14, 10), 260)}px`, top: `${Math.min(Math.max(hover.y + 12, 10), 245)}px` }}><div className="chart-tooltip-heading"><strong>{activeCandle.session}</strong><span>{activeCandle.is_complete === false ? "aberta" : "encerrada"}</span></div><div className="chart-tooltip-grid"><span>O <b>{formatPrice(activeCandle.open)}</b></span><span>H <b>{formatPrice(activeCandle.high)}</b></span><span>L <b>{formatPrice(activeCandle.low)}</b></span><span>C <b>{formatPrice(activeCandle.close)}</b></span><span>VOL <b>{activeCandle.volume == null ? "—" : Math.round(activeCandle.volume).toLocaleString("en-US")}</b></span><span>Δ <b>{activeCandle.close != null && activeCandle.open != null ? formatSignedPercent((activeCandle.close - activeCandle.open) / activeCandle.open) : "—"}</b></span></div></div> : null}
       </div>
       <div className="chart-footer"><span>Roda: zoom · arraste com <strong>Mover</strong> · clique para marcar · duplo clique para ajustar</span><span>{viewWindow.start + 1}–{viewWindow.end} de {valid.length} barras</span></div>
