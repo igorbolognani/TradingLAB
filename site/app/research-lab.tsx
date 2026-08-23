@@ -4,9 +4,9 @@ import type { ChangeEvent, PointerEvent as ReactPointerEvent, WheelEvent as Reac
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PaperControl from "./paper-control";
-import { ASSET_DESCRIPTIONS, AssetHelp, HelpDot, InfoDisclosure } from "./ui";
+import { ASSET_DESCRIPTIONS, AssetHelp, HelpDot } from "./ui";
 
-type ViewId = "landing" | "about" | "overview" | "paper" | "market" | "experiments" | "portfolio" | "provenance" | "profile" | "settings" | "help" | "admin";
+type ViewId = "landing" | "about" | "overview" | "paper" | "market" | "experiments" | "portfolio" | "profile" | "settings";
 
 type ResearchLabProps = {
   isOwner: boolean;
@@ -1537,7 +1537,6 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
             <h1>Seu mercado, em um só lugar.</h1>
             <div className="hero-actions">
               <button className="button button-primary" onClick={() => navigate(isOwner ? "market" : "paper")}>{isOwner ? "Abrir Market data" : "Abrir Paper workspace"} <span aria-hidden="true">→</span></button>
-              <button className="button button-quiet" onClick={() => navigate("provenance")}>Ver origem dos dados</button>
             </div>
           </div>
           <div className="hero-note">
@@ -1560,7 +1559,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
               {isOwner ? <><button className="button button-outline" onClick={() => navigate("paper")}>Abrir Paper monitor</button><button className="button button-outline" onClick={() => navigate("market")}>Abrir Market data</button><button className="button button-outline" onClick={() => navigate("portfolio")}>Abrir Portfolio</button><a className="button button-primary" href="/alpaca/connect">Configurar OAuth</a></> : viewer ? <><button className="button button-outline" onClick={() => navigate("paper")}>Abrir Paper workspace</button><a className="button button-primary" href="/alpaca/connect">Conectar minha Alpaca</a></> : <span className="small-muted">Faça login para conectar sua conta.</span>}
             </div>
           </article>
-          {isOwner ? <article className="panel workspace-mode-card workspace-research-card"><div className="panel-kicker">Research tools</div><h2>Teste cenários com dados identificados</h2><div className="compact-status-row"><span>experimentos · dados · V0.6</span><HelpDot label="Sobre Research"><span className="help-popover-copy">A área privada usa resultados importados ou a API local. O holdout permanece protegido.</span></HelpDot></div><div className="workspace-actions"><button className="button button-primary" onClick={() => navigate("experiments")}>Abrir Experiments <span aria-hidden="true">→</span></button></div></article> : <article className="panel workspace-mode-card workspace-research-card"><div className="panel-kicker">Account tools</div><h2>Origem e preferências no seu controle</h2><div className="compact-status-row"><span>dados e visualização</span><HelpDot label="Sobre as ferramentas"><span className="help-popover-copy">Confira a origem dos dados ou ajuste a interface neste dispositivo.</span></HelpDot></div><div className="workspace-actions"><button className="button button-outline" onClick={() => navigate("provenance")}>Data &amp; trust</button><button className="button button-primary" onClick={() => navigate("settings")}>Settings</button></div></article>}
+          {isOwner ? <article className="panel workspace-mode-card workspace-research-card"><div className="panel-kicker">Research tools</div><h2>Teste cenários com dados identificados</h2><div className="compact-status-row"><span>experimentos · dados · V0.6</span><HelpDot label="Sobre Research"><span className="help-popover-copy">A área privada usa resultados importados ou a API local. O holdout permanece protegido.</span></HelpDot></div><div className="workspace-actions"><button className="button button-primary" onClick={() => navigate("experiments")}>Abrir Experiments <span aria-hidden="true">→</span></button></div></article> : <article className="panel workspace-mode-card workspace-research-card"><div className="panel-kicker">Workspace settings</div><h2>Preferências da sua interface</h2><div className="compact-status-row"><span>visualização · conta</span><HelpDot label="Sobre as preferências"><span className="help-popover-copy">Ajuste o ativo padrão, o fuso, a densidade e as marcações do gráfico.</span></HelpDot></div><div className="workspace-actions"><button className="button button-primary" onClick={() => navigate("settings")}>Abrir Settings</button></div></article>}
         </section>
 
         {renderMarketPreview()}
@@ -1631,9 +1630,6 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
               <div><span className="check">✓</span><span>Holdout não executável pelo painel</span></div>
               <div><span className="check">✓</span><span>Sem broker, credenciais ou ordens</span></div>
             </div>
-            <button className="text-link" onClick={() => navigate("provenance")}>
-              Ver origem e limites <span aria-hidden="true">↗</span>
-            </button>
           </article>
         </section>
 
@@ -1687,9 +1683,9 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
             <div className="panel-kicker">Research controls</div>
             <h2>Recorte do experimento <HelpDot label="Sobre o recorte"><span className="help-popover-copy">Os filtros alteram a visualização. O manifesto continua identificando o dataset e o resultado original.</span></HelpDot></h2>
             <div className="field-grid">
-              <label htmlFor="experiment-strategy">Estratégia<select id="experiment-strategy" value={strategy} onChange={(event) => setStrategy(event.target.value)}><option value="ALL">Todas as estratégias</option>{STRATEGIES.map((item) => <option key={item} value={item}>{labelForStrategy(item)}</option>)}</select></label>
-              <label htmlFor="experiment-asset">Ativo<select id="experiment-asset" value={asset} onChange={(event) => setAsset(event.target.value)}><option value="ALL">Todos os ativos</option>{ASSETS.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-              <label htmlFor="experiment-split">Período<select id="experiment-split" value={split} onChange={(event) => setSplit(event.target.value)}><option value="ALL">Todos os períodos</option>{SPLITS.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+              <label htmlFor="experiment-strategy">Estratégia <HelpDot label="Sobre estratégia"><strong className="help-popover-title">Família da regra</strong><span className="help-popover-copy">Filtra os resultados pela lógica que gerou cada trial.</span><ul className="help-popover-list"><li><b>Todas:</b> mostra todas as famílias.</li><li><b>Cash:</b> controle sem posição.</li><li><b>Buy &amp; Hold:</b> benchmark do ativo.</li><li><b>Trend:</b> sinal pela SMA200.</li><li><b>Mean Reversion:</b> entrada por z-score.</li></ul></HelpDot><select id="experiment-strategy" value={strategy} onChange={(event) => setStrategy(event.target.value)}><option value="ALL">Todas as estratégias</option>{STRATEGIES.map((item) => <option key={item} value={item}>{labelForStrategy(item)}</option>)}</select></label>
+              <label htmlFor="experiment-asset">Ativo <AssetHelp symbol={asset === "ALL" ? null : asset} /><select id="experiment-asset" value={asset} onChange={(event) => setAsset(event.target.value)}><option value="ALL">Todos os ativos</option>{ASSETS.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+              <label htmlFor="experiment-split">Período <HelpDot label="Sobre período"><strong className="help-popover-title">Divisão temporal</strong><span className="help-popover-copy">Filtra a janela usada para observar o resultado, sem mudar o dataset.</span><ul className="help-popover-list"><li><b>Development:</b> exploração inicial.</li><li><b>Validation OOS:</b> período posterior fora da construção.</li><li><b>Project Holdout:</b> reservado; não deve orientar ajustes.</li></ul></HelpDot><select id="experiment-split" value={split} onChange={(event) => setSplit(event.target.value)}><option value="ALL">Todos os períodos</option>{SPLITS.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
             </div>
             <div className="control-actions">
               <button className="button button-primary" onClick={() => void runLocalBattery()} disabled={isRunning}>
@@ -1730,9 +1726,9 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
             <div className="panel-kicker">Data controls</div>
           <h2>Escolha o ativo e o recorte <HelpDot label="Sobre as fontes"><strong className="help-popover-title">Fontes disponíveis</strong><span className="help-popover-copy">Snapshot privado e arquivos carregados são fontes diferentes. O painel mostra origem, horário, qualidade e estado de completude junto do resultado.</span></HelpDot></h2>
           <div className="field-grid market-field-grid">
-            <label htmlFor="candle-source">Fonte <HelpDot label="Sobre a fonte"><strong className="help-popover-title">Origem dos candles</strong><span className="help-popover-copy">A fonte informa de onde veio o preço. Snapshot privado é histórico local; arquivo externo ou do navegador depende de validação do contrato canônico.</span><span className="help-popover-footnote">A interface não inventa valores quando a fonte está ausente.</span></HelpDot><select id="candle-source" value={candleSource} onChange={(event) => setCandleSource(event.target.value as "snapshot" | "external_file" | "browser_file")}><option value="snapshot" disabled={!localDatasetId}>Snapshot privado Yahoo</option><option value="external_file" disabled={!externalFileAvailable}>Arquivo externo configurado</option><option value="browser_file" disabled={!candlePayload || candleSource !== "browser_file"}>Arquivo deste navegador</option></select></label>
+            <label htmlFor="candle-source">Fonte <HelpDot label="Sobre a fonte"><strong className="help-popover-title">Origem dos candles</strong><span className="help-popover-copy">Escolha de onde a tela deve ler os dados. A fonte também determina quais metadados de horário, qualidade e preço-base podem ser exibidos.</span><ul className="help-popover-list"><li><b>Snapshot privado:</b> dataset local validado.</li><li><b>Arquivo externo:</b> arquivo disponibilizado pelo ambiente local.</li><li><b>Arquivo deste navegador:</b> CSV importado nesta sessão.</li></ul><span className="help-popover-footnote">Sem fonte válida, nenhum preço é preenchido.</span></HelpDot><select id="candle-source" value={candleSource} onChange={(event) => setCandleSource(event.target.value as "snapshot" | "external_file" | "browser_file")}><option value="snapshot" disabled={!localDatasetId}>Snapshot privado Yahoo</option><option value="external_file" disabled={!externalFileAvailable}>Arquivo externo configurado</option><option value="browser_file" disabled={!candlePayload || candleSource !== "browser_file"}>Arquivo deste navegador</option></select></label>
             <label htmlFor="candle-symbol">Ativo <AssetHelp symbol={candleSymbol} /><select id="candle-symbol" value={candleSymbol} onChange={(event) => setCandleSymbol(event.target.value)}>{ASSETS.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-            <label htmlFor="candle-limit">Candles recentes <HelpDot label="Sobre candles recentes">Escolha quantas barras recentes deseja visualizar. Indicadores como SMA são calculados sobre a série completa antes deste recorte.</HelpDot><select id="candle-limit" value={candleLimit} onChange={(event) => setCandleLimit(event.target.value)}><option value="120">120</option><option value="240">240</option><option value="500">500</option><option value="1000">1000</option></select></label>
+            <label htmlFor="candle-limit">Candles recentes <HelpDot label="Sobre candles recentes"><strong className="help-popover-title">Janela visual</strong><span className="help-popover-copy">Define quantas barras aparecem no gráfico. Não altera o cálculo dos indicadores, que usa a série completa.</span><ul className="help-popover-list"><li><b>120:</b> leitura rápida.</li><li><b>240:</b> contexto padrão.</li><li><b>500:</b> contexto ampliado.</li><li><b>1.000:</b> histórico visual mais longo.</li></ul></HelpDot><select id="candle-limit" value={candleLimit} onChange={(event) => setCandleLimit(event.target.value)}><option value="120">120</option><option value="240">240</option><option value="500">500</option><option value="1000">1000</option></select></label>
             <div className="market-action"><div className="market-action-buttons"><button className="button button-primary" onClick={() => void loadCandles()} disabled={isLoadingCandles || candleSource === "browser_file"}>{isLoadingCandles ? "Validando…" : "Carregar candles"}</button><button className="button button-outline" onClick={() => candleFileInput.current?.click()}>Importar CSV</button><input ref={candleFileInput} className="visually-hidden" type="file" accept=".csv,text/csv" onChange={(event) => void handleCandleFile(event)} /></div><span>{candleSource === "external_file" ? "arquivo externo configurado" : localDatasetId || "nenhum dataset detectado"}</span></div>
           </div>
           {candleNotice ? <div className="notice" role="status">{candleNotice}</div> : null}
@@ -1799,9 +1795,9 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
             <div className="panel-kicker">Portfolio controls</div>
             <h2>Executar replay <HelpDot label="Sobre o replay"><span className="help-popover-copy">Usa o snapshot validado, caixa virtual de US$100.000 e somente Development ou Validation OOS. O Project Holdout permanece bloqueado.</span></HelpDot></h2>
             <div className="field-grid">
-              <label htmlFor="portfolio-split">Período<select id="portfolio-split" value={portfolioSplit} onChange={(event) => setPortfolioSplit(event.target.value)}><option value="development">Development</option><option value="validation_oos">Validation OOS</option></select></label>
-              <label htmlFor="portfolio-method">Alocação<select id="portfolio-method" value={portfolioMethod} onChange={(event) => setPortfolioMethod(event.target.value as "equal_weight" | "inverse_vol")}><option value="equal_weight">Equal weight</option><option value="inverse_vol">Inverse volatility</option></select></label>
-              <label htmlFor="portfolio-friction">Fricção por lado<select id="portfolio-friction" value={portfolioFriction} onChange={(event) => setPortfolioFriction(event.target.value)}><option value="0">0 bps</option><option value="5">5 bps</option><option value="10">10 bps</option><option value="25">25 bps</option></select></label>
+              <label htmlFor="portfolio-split">Período <HelpDot label="Sobre o período do replay"><strong className="help-popover-title">Janela permitida</strong><span className="help-popover-copy">Escolhe qual recorte histórico será reproduzido com caixa simulado.</span><ul className="help-popover-list"><li><b>Development:</b> período de construção.</li><li><b>Validation OOS:</b> período posterior para validação.</li></ul><span className="help-popover-footnote">Project Holdout não aparece como opção.</span></HelpDot><select id="portfolio-split" value={portfolioSplit} onChange={(event) => setPortfolioSplit(event.target.value)}><option value="development">Development</option><option value="validation_oos">Validation OOS</option></select></label>
+              <label htmlFor="portfolio-method">Alocação <HelpDot label="Sobre alocação"><strong className="help-popover-title">Como o caixa é distribuído</strong><ul className="help-popover-list"><li><b>Equal weight:</b> divide o capital igualmente entre os sinais.</li><li><b>Inverse volatility:</b> reduz o peso relativo de ativos mais voláteis.</li></ul></HelpDot><select id="portfolio-method" value={portfolioMethod} onChange={(event) => setPortfolioMethod(event.target.value as "equal_weight" | "inverse_vol")}><option value="equal_weight">Equal weight</option><option value="inverse_vol">Inverse volatility</option></select></label>
+              <label htmlFor="portfolio-friction">Fricção por lado <HelpDot label="Sobre fricção"><strong className="help-popover-title">Custo modelado</strong><span className="help-popover-copy">Custo percentual aplicado em cada lado executado do replay para observar sensibilidade.</span><ul className="help-popover-list"><li><b>0 bps:</b> sem custo.</li><li><b>5 bps:</b> cenário base.</li><li><b>10 bps:</b> cenário intermediário.</li><li><b>25 bps:</b> cenário estressado.</li></ul></HelpDot><select id="portfolio-friction" value={portfolioFriction} onChange={(event) => setPortfolioFriction(event.target.value)}><option value="0">0 bps</option><option value="5">5 bps</option><option value="10">10 bps</option><option value="25">25 bps</option></select></label>
             </div>
             <div className="control-actions">
               <button className="button button-primary" onClick={() => void runLocalPortfolio()} disabled={isRunningPortfolio}>{isRunningPortfolio ? "Executando…" : "Executar replay local"}</button>
@@ -1809,13 +1805,6 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
               <input ref={portfolioFileInput} className="visually-hidden" type="file" accept=".json,application/json" onChange={(event) => void handlePortfolioFile(event)} />
             </div>
             <div className="execution-note"><strong>{localDatasetId ? "Snapshot detectado" : "Sem snapshot conectado"}</strong><span>{localDatasetId || "Inicie a API local ou importe um JSON produzido pelo comando run-portfolio."}</span></div>
-          </article>
-          <article className="panel portfolio-side">
-            <div className="panel-kicker">Contract / fixed parameters</div><h2>O que fica congelado</h2>
-            <div className="method-card active"><span>01</span><div><strong>SMA 200</strong><small>Decisão no fechamento confirmado</small></div><b>FIXO</b></div>
-            <div className="method-card"><span>02</span><div><strong>Rebalance 21 sessões</strong><small>Execução na abertura seguinte</small></div><b>FIXO</b></div>
-            <div className="method-card"><span>03</span><div><strong>Long-only / caixa compartilhado</strong><small>Shares inteiras, sem leverage</small></div><b>FIXO</b></div>
-            <div className="method-card muted"><span>04</span><div><strong>Otimização automática</strong><small>Fora do escopo e bloqueada</small></div><b>OFF</b></div>
           </article>
         </div>
         {portfolioNotice ? <div className="notice" role="status">{portfolioNotice}</div> : null}
@@ -1843,23 +1832,6 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     );
   }
 
-  function renderProvenance() {
-    return (
-      <section className="page-stack">
-        <div className="page-heading"><div><div className="eyebrow">Admin / provenance</div><h1>Controle técnico e evidência do produto.</h1></div><span className="source-pill">owner only</span></div>
-        <div className="provenance-grid">
-          <article className="panel provenance-main"><div className="panel-kicker">Data contract</div><h2>O que esta interface aceita</h2><div className="contract-list"><div><span className="contract-key">RAW</span><p>Dados do provedor preservados separadamente; não são embutidos no site público.</p></div><div><span className="contract-key">ACTIONS</span><p>Ações corporativas permanecem auditáveis e não são recarregadas como um detalhe invisível.</p></div><div><span className="contract-key">NORMALIZED</span><p>O painel aceita <code>all_trials.csv</code> ou JSON exportado e calcula o resumo no navegador.</p></div><div><span className="contract-key">HASH</span><p>Dataset, manifesto, commit e lockfile continuam sendo a autoridade; o painel é uma camada de leitura.</p></div></div></article>
-          <article className="panel safety-panel"><div className="safety-mark">0</div><div className="panel-kicker">Safety boundary</div><h2>Paper privado, live bloqueado</h2><p>A camada direta usa somente a conta Paper do proprietário, com credenciais server-side, allowlist, limites pequenos, reconciliação e kill switch. Live trading continua inexistente.</p><div className="safety-tags"><span>PAPER OWNER ONLY</span><span>LIVE OFF</span><span>KILL SWITCH</span></div></article>
-        </div>
-        <article className="panel provenance-table"><div className="panel-heading"><div><div className="panel-kicker">Evidence status</div><h2>Mapa de entregas</h2></div></div><div className="status-table"><div><strong>V0.1</strong><span className="status-complete">COMPLETA</span><p>Backtest causal, registry append-only, holdout controlado.</p></div><div><strong>V0.2</strong><span className="status-complete">REPRODUZIDA</span><p>60/60 configurações primárias no gate independente.</p></div><div><strong>V0.3</strong><span className="status-current">PAPER LOCAL</span><p>Conta, IEX, WebSocket, posições, ordens e cancelamento sob kill switch.</p></div><div><strong>V0.4–V0.6</strong><span className="status-bridge">EM EVOLUÇÃO</span><p>TradingView, Forex e portfólio continuam separados do executor Paper.</p></div><div><strong>V1.0</strong><span className="status-current">PRIVADA</span><p>Interface owner, dados reais server-side, mobile e proveniência.</p></div></div></article>
-        <div className="admin-tools-grid">
-          <article className="panel command-panel"><div className="panel-kicker">Use tips / reprodução</div><h2>Comando preparado para repetir um trial</h2><p className="panel-copy">O comando é uma ponte para o motor local. Ele não roda no site e não libera o Project Holdout.</p><pre><code>{command}</code></pre><button className="button button-outline full-width" onClick={() => void copyCommand()}>Copiar comando</button></article>
-          <article className="panel admin-contract-panel"><div className="panel-kicker">Fixed parameters</div><h2>Contratos que não devem ser alterados aqui</h2><div className="admin-contract-list"><div><strong>DECISÃO</strong><span>close confirmado → próximo open válido</span></div><div><strong>BASE</strong><span>RAW, ações e normalized separados</span></div><div><strong>RISCO</strong><span>long-only, shares inteiras, sem leverage</span></div><div><strong>GATE</strong><span>holdout protegido e live ausente</span></div></div><InfoDisclosure title="Abrir mapa técnico"><p>O código canônico permanece no repositório local. Esta página reúne o mapa para revisão humana, não substitui os manifestos ou os artefatos imutáveis.</p></InfoDisclosure></article>
-        </div>
-      </section>
-    );
-  }
-
   function renderAbout({ publicMode = false }: { publicMode?: boolean } = {}) {
     return (
       <section className="about-page">
@@ -1870,7 +1842,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
 
         <section className="about-section"><div className="about-section-heading"><span>01</span><div><div className="eyebrow">Comece aqui</div><h2>O fluxo em quatro movimentos.</h2></div></div><div className="about-flow-grid"><article><b>01</b><h3>Entre</h3><p>Faça login para abrir um workspace individual. O acesso define quais dados e ferramentas aparecem.</p></article><article><b>02</b><h3>Escolha</h3><p>Selecione ativo, período, fonte e ferramenta. Os campos controlam a visualização ou a execução explicitamente.</p></article><article><b>03</b><h3>Interaja</h3><p>Leia candles, use o cursor, ajuste o recorte, carregue dados e rode somente a ação disponível para sua conta.</p></article><article><b>04</b><h3>Confira</h3><p>Depois de uma carga ou replay, o resultado aparece com origem, horário, qualidade, métricas e estado.</p></article></div></section>
 
-        <section className="about-section"><div className="about-section-heading"><span>02</span><div><div className="eyebrow">Áreas do aplicativo</div><h2>O que cada tela faz.</h2></div></div><div className="about-detail-grid"><article><h3>Home / dashboard</h3><p>É o ponto de entrada. Mostra o gráfico principal, filtros sobre resultados importados, métricas resumidas e atalhos para o próximo passo.</p><p className="about-note">Usuários veem o próprio workspace; o proprietário também pode abrir dados locais, Experiments e Portfolio.</p></article><article><h3>Paper workspace</h3><p>Conecta uma conta Alpaca Paper autorizada para consultar cotação, candles, conta, buying power, posições e ordens. O painel informa transporte, idade e latência quando medidos.</p><p className="about-note">Toda ação externa depende dos gates do servidor, allowlist, limites e kill switch.</p></article><article><h3>Market data</h3><p>Carrega candles completos de uma fonte local validada ou de um arquivo escolhido. A tela mostra OHLCV, indicadores derivados, qualidade, timezone, calendário e hashes.</p><p className="about-note">Sem fonte válida, o painel permanece vazio.</p></article><article><h3>Research e Portfolio</h3><p>O proprietário pode filtrar resultados, executar uma bateria local sem holdout e rodar o replay V0.6 com caixa simulado, alocação, fills e curva de patrimônio.</p><p className="about-note">Essas ferramentas não enviam ordens e não promovem estratégias.</p></article></div></section>
+        <section className="about-section"><div className="about-section-heading"><span>02</span><div><div className="eyebrow">Áreas do aplicativo</div><h2>O que cada tela faz.</h2></div></div><div className="about-detail-grid"><article><h3>Home / dashboard</h3><p>É o ponto de entrada. Mostra o gráfico principal, os atalhos e, para o proprietário, os filtros e métricas dos resultados importados.</p><p className="about-note">Usuários veem o próprio workspace; o proprietário também pode abrir dados locais, Experiments e Portfolio.</p></article><article><h3>Paper workspace</h3><p>Conecta uma conta Alpaca Paper autorizada para consultar cotação, candles, conta, buying power, posições e ordens. O painel informa transporte, idade e latência quando medidos.</p><p className="about-note">Toda ação externa depende dos gates do servidor, allowlist, limites e kill switch.</p></article><article><h3>Market data</h3><p>Carrega candles completos de uma fonte local validada ou de um arquivo escolhido. A tela mostra OHLCV e indicadores calculados para apoiar a leitura.</p><p className="about-note">Fonte, qualidade, horário, base de preço e limites ficam explicados nesta página; sem fonte válida, o painel permanece vazio.</p></article><article><h3>Research e Portfolio</h3><p>O proprietário pode filtrar resultados, executar uma bateria local sem holdout e rodar o replay V0.6 com caixa simulado, alocação, fills e curva de patrimônio.</p><p className="about-note">Essas ferramentas não enviam ordens e não promovem estratégias.</p></article></div></section>
 
         <section className="about-section"><div className="about-section-heading"><span>03</span><div><div className="eyebrow">Universo inicial</div><h2>Os ativos e o que observar.</h2></div></div><div className="about-asset-grid">{Object.entries(ASSET_DESCRIPTIONS).map(([symbol, description]) => <article className="about-asset-card" key={symbol}><div className="about-asset-title"><span className="asset-badge">{symbol}</span><strong>{description.name}</strong></div><dl><div><dt>Exposição</dt><dd>{description.exposure}.</dd></div><div><dt>Função</dt><dd>{description.role}.</dd></div><div><dt>Observe</dt><dd>{description.watch}.</dd></div></dl></article>)}</div><p className="about-footnote">Os ativos são ETFs usados para comparar exposições econômicas diferentes. A descrição é educacional e não é recomendação.</p></section>
 
@@ -1880,25 +1852,13 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
 
         <section className="about-section"><div className="about-section-heading"><span>06</span><div><div className="eyebrow">Dados e confiança</div><h2>O que acompanha cada valor.</h2></div></div><div className="about-trust-list"><div><strong>Fonte</strong><span>provedor, versão, arquivo, horário de coleta e preço-base quando conhecidos.</span></div><div><strong>Tempo</strong><span>sessão, timezone, horário do evento, idade do dado e latência medida quando disponível.</span></div><div><strong>Qualidade</strong><span>linhas, duplicidades, ordem, valores ausentes, OHLC inválido e completude da barra.</span></div><div><strong>Proveniência</strong><span>dataset, manifesto, checksum, calendário, ações corporativas e estado histórico ou realtime.</span></div></div><p className="about-footnote">Quando a informação não existe, o TradingLAB mostra “desconhecido” ou mantém o painel vazio; não cria preço, latência ou qualidade.</p></section>
 
-        <section className="about-section"><div className="about-section-heading"><span>07</span><div><div className="eyebrow">Acesso e limites</div><h2>O que fica disponível para cada conta.</h2></div></div><div className="about-access-table"><div><strong>Usuário conectado</strong><span>workspace online, Paper da própria conta via OAuth quando autorizado, gráficos, candles e ferramentas públicas.</span></div><div><strong>Proprietário</strong><span>tudo acima, mais snapshot privado, API local, Experiments, Portfolio V0.6, Admin e controles do Paper direto.</span></div><div><strong>Todos</strong><span>nenhuma credencial aparece no navegador; live trading, custódia, depósitos e pagamento não são oferecidos nesta versão.</span></div></div></section>
+        <section className="about-section"><div className="about-section-heading"><span>07</span><div><div className="eyebrow">Acesso e limites</div><h2>O que fica disponível para cada conta.</h2></div></div><div className="about-access-table"><div><strong>Usuário conectado</strong><span>workspace online, Paper da própria conta via OAuth quando autorizado, gráficos, candles e ferramentas públicas.</span></div><div><strong>Proprietário</strong><span>tudo acima, mais snapshot privado, API local, Experiments, Portfolio V0.6 e controles do Paper direto.</span></div><div><strong>Todos</strong><span>nenhuma credencial aparece no navegador; live trading, custódia, depósitos e pagamento não são oferecidos nesta versão.</span></div></div></section>
+
+        {isOwner && !publicMode ? <section className="about-section about-owner-section"><div className="about-section-heading"><span>+</span><div><div className="eyebrow">Área do proprietário</div><h2>Contratos, evidências e reprodução.</h2></div></div><div className="about-detail-grid"><article><h3>Contrato de dados</h3><p><strong>RAW</strong> preserva a resposta original do provedor. <strong>ACTIONS</strong> mantém os eventos corporativos separados. <strong>NORMALIZED</strong> é a base usada pelos indicadores e fills. <strong>HASH</strong> liga dataset, manifesto, código e lockfile.</p></article><article><h3>Contrato causal</h3><p>A decisão usa o fechamento confirmado da sessão <em>t</em> e só pode ser executada na próxima abertura válida. O laboratório é long-only, usa shares inteiras, sem leverage, sem otimização automática e com holdout protegido.</p></article><article><h3>Segurança operacional</h3><p>Paper é separado da pesquisa, depende de credenciais server-side, allowlist, limites, reconciliação e kill switch. Live trading continua desativado; esta interface não oferece custódia, depósito ou pagamento.</p></article><article><h3>Estado das versões</h3><p>V0.1 é o laboratório causal; V0.2 é a reprodução independente; V0.3–V0.5 são pontes de paper, observação e Forex; V0.6 é o replay multiativo de referência; V1.0 reúne o workspace operacional privado.</p></article></div><div className="about-trust-list"><div><strong>V0.1</strong><span>backtest causal, registry append-only, holdout controlado e artefatos reproduzíveis.</span></div><div><strong>V0.2</strong><span>reprodução independente com contratos de indicador, sinal, fill e custo alinhados.</span></div><div><strong>V0.3–V0.5</strong><span>paper-readiness, observação TradingView e ponte Forex offline sem liberar broker.</span></div><div><strong>V0.6 / V1.0</strong><span>replay de portfólio, interface privada, candles identificados, mobile e gates de Paper.</span></div></div><div className="about-owner-command"><div><div className="panel-kicker">Reprodução local</div><h3>Comando preparado</h3><p>Use-o no ambiente local para repetir um trial. Ele não roda no site e não libera o Project Holdout.</p></div><pre><code>{command}</code></pre><button className="button button-outline" onClick={() => void copyCommand()}>Copiar comando</button></div></section> : null}
 
         <section className="about-section about-contact-section"><div className="about-section-heading"><span>08</span><div><div className="eyebrow">Ajuda e contato</div><h2>Quando precisar de suporte.</h2></div></div><div className="about-contact-grid"><p>Use o botão `?` ao lado de um campo para uma explicação curta e específica. Para dúvidas sobre acesso, dados, integração ou comportamento da conta, fale com o proprietário.</p><a className="button button-outline" href="mailto:igorbolognani@hotmail.com">Enviar mensagem</a></div></section>
 
-        <div className="about-actions"><button className="button button-primary" type="button" onClick={() => navigate(publicMode ? "landing" : "overview")}>{publicMode ? "Voltar para a apresentação" : "Abrir dashboard"} <span aria-hidden="true">→</span></button>{publicMode ? <a className="button button-outline" href={signInHref}>Entrar com ChatGPT</a> : isOwner ? <button className="button button-outline" type="button" onClick={() => navigate("admin")}>Abrir Admin</button> : null}</div>
-      </section>
-    );
-  }
-
-  function renderData() {
-    return (
-      <section className="page-stack">
-        <div className="page-heading"><div><div className="eyebrow">Data &amp; trust</div><h1>Origem e estado dos dados.</h1></div><button className="button button-quiet" type="button" onClick={() => navigate("about")}>About &amp; usage</button></div>
-        <div className="trust-overview-grid compact-trust-grid">
-          <article className="panel trust-card"><span className="trust-card-icon">◎</span><div><h2>Fonte</h2><strong className="status-value">identificada quando disponível</strong></div><HelpDot label="Sobre a fonte dos dados"><span className="help-popover-copy">Fonte é o serviço ou arquivo que forneceu os candles. O painel também mostra versão, horário, base de preço e arquivo quando existem.</span></HelpDot></article>
-          <article className="panel trust-card"><span className="trust-card-icon">✓</span><div><h2>Qualidade</h2><strong className="status-value">verificada antes da exibição</strong></div><HelpDot label="Sobre a qualidade"><span className="help-popover-copy">A qualidade reúne completude, duplicidade, ordem, ausências, OHLC inválido e validação do manifesto.</span></HelpDot></article>
-          <article className="panel trust-card"><span className="trust-card-icon">◌</span><div><h2>Estado</h2><strong className="status-value">histórico, arquivo ou realtime</strong></div><HelpDot label="Sobre realtime"><span className="help-popover-copy">Realtime é uma cotação recebida agora. Snapshot histórico e arquivo local não são transmissão ao vivo; latência não medida permanece desconhecida.</span></HelpDot></article>
-        </div>
-        <article className="panel data-contract-card"><div className="panel-heading"><div><div className="panel-kicker">Data contract</div><h2>Metadados que acompanham o resultado</h2></div><span className="api-badge api-offline"><span /> não é recomendação</span></div><div className="data-contract-grid"><div><strong>RAW</strong><span>origem preservada quando disponível</span></div><div><strong>NORMALIZED</strong><span>base usada no cálculo</span></div><div><strong>TIME</strong><span>sessão, timezone e evento</span></div><div><strong>STATUS</strong><span>completo ou desconhecido</span></div></div><button className="button button-quiet" type="button" onClick={() => navigate("about")}>Ver como interpretar →</button></article>
+        <div className="about-actions"><button className="button button-primary" type="button" onClick={() => navigate(publicMode ? "landing" : "overview")}>{publicMode ? "Voltar para a apresentação" : "Abrir dashboard"} <span aria-hidden="true">→</span></button>{publicMode ? <a className="button button-outline" href={signInHref}>Entrar com ChatGPT</a> : null}</div>
       </section>
     );
   }
@@ -1922,25 +1882,15 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     return (
       <section className="page-stack settings-page">
         <div className="page-heading"><div><div className="eyebrow">Workspace / settings</div><h1>Preferências do workspace.</h1></div><span className="source-pill">salvo neste dispositivo</span></div>
-        <div className="settings-grid">
+        <div className="settings-grid settings-grid-single">
           <article className="panel settings-panel"><div className="panel-kicker">Visualização</div><h2>Configurações pessoais</h2><div className="settings-form-grid"><label>Ativo padrão <AssetHelp symbol={defaultSymbol} /><select value={defaultSymbol} onChange={(event) => { setDefaultSymbol(event.target.value); setCandleSymbol(event.target.value); }}>{ASSETS.map((item) => <option key={item}>{item}</option>)}</select></label><label>Fuso exibido <HelpDot label="Sobre o fuso exibido"><span className="help-popover-copy">Define a preferência de leitura dos horários apresentados pela interface. Não altera os timestamps originais nem os cálculos.</span></HelpDot><select value={displayTimezone} onChange={(event) => setDisplayTimezone(event.target.value)}><option>America/New_York</option><option>Europe/Madrid</option><option>UTC</option></select></label></div><div className="settings-list"><label className="setting-row" htmlFor="setting-tooltips"><span><strong>Ajuda contextual</strong><HelpDot label="Sobre ajuda contextual"><span className="help-popover-copy">Exibe os ícones `?` ao lado de campos e controles.</span></HelpDot></span><input id="setting-tooltips" aria-label="Ajuda contextual" type="checkbox" checked={tooltipsEnabled} onChange={(event) => setTooltipsEnabled(event.target.checked)} /></label><label className="setting-row" htmlFor="setting-compact"><span><strong>Modo compacto</strong><HelpDot label="Sobre modo compacto"><span className="help-popover-copy">Reduz espaços para mostrar mais controles e resultados na tela.</span></HelpDot></span><input id="setting-compact" aria-label="Modo compacto" type="checkbox" checked={compactMode} onChange={(event) => setCompactMode(event.target.checked)} /></label><label className="setting-row" htmlFor="setting-drawings"><span><strong>Preservar marcações</strong><HelpDot label="Sobre marcações"><span className="help-popover-copy">Salva linhas, níveis e marcadores neste dispositivo, por ativo.</span></HelpDot></span><input id="setting-drawings" aria-label="Preservar marcações do gráfico" type="checkbox" checked={persistDrawings} onChange={(event) => setPersistDrawings(event.target.checked)} /></label></div></article>
-          <article className="panel settings-panel"><div className="panel-kicker">Safety defaults</div><h2>Limites fixos</h2><div className="settings-list readonly-settings"><div className="setting-row"><span><strong>Live trading</strong><HelpDot label="Sobre live trading"><span className="help-popover-copy">Não existe caminho ativo para enviar dinheiro real nesta versão.</span></HelpDot></span><b>OFF</b></div><div className="setting-row"><span><strong>Holdout</strong><HelpDot label="Sobre holdout"><span className="help-popover-copy">O Project Holdout não é executado nem ajustado pela interface.</span></HelpDot></span><b>PROTEGIDO</b></div><div className="setting-row"><span><strong>Credenciais</strong><HelpDot label="Sobre credenciais"><span className="help-popover-copy">Ficam no servidor ou na autorização oficial; não são salvas nestas preferências.</span></HelpDot></span><b>SERVER-SIDE</b></div></div></article>
         </div>
         <article className="panel settings-note"><HelpDot label="Sobre preferências locais"><span className="help-popover-copy">Estas opções mudam aparência e interação. Não alteram dados, cálculos, estratégias ou permissões.</span></HelpDot><span>Preferências locais ativas: {defaultSymbol} · {displayTimezone}</span></article>
       </section>
     );
   }
 
-  function renderHelp() {
-    return (
-      <section className="page-stack help-page">
-        <div className="page-heading"><div><div className="eyebrow">Help / contact</div><h1>Ajuda rápida.</h1></div><button className="button button-primary" type="button" onClick={() => navigate("about")}>Abrir About &amp; usage</button></div>
-        <div className="help-action-grid"><article className="panel help-action-card"><span className="help-mark">?</span><div><h2>Precisa entender uma tela?</h2><span className="small-muted">Abra o guia completo em uma única página.</span><button className="button button-outline" type="button" onClick={() => navigate("about")}>Ver guia completo</button></div></article><article className="panel help-action-card"><span className="help-mark">⌘</span><div><h2>Quer ajustar a interface?</h2><span className="small-muted">Ativo padrão, fuso, densidade e marcações.</span><button className="button button-outline" type="button" onClick={() => navigate("settings")}>Abrir Settings</button></div></article><article className="panel help-action-card"><span className="help-mark">@</span><div><h2>Falar com o proprietário</h2><span className="small-muted">Acesso, dados ou integração.</span><a className="button button-outline" href="mailto:igorbolognani@hotmail.com">Enviar mensagem</a></div></article></div>
-      </section>
-    );
-  }
-
-  const ownerOnlyViews: ViewId[] = ["market", "portfolio", "experiments", "admin"];
+  const ownerOnlyViews: ViewId[] = ["market", "portfolio", "experiments"];
   const visibleActiveView: ViewId = !isOwner && ownerOnlyViews.includes(activeView)
     ? "overview"
     : !viewer && !isOwner && activeView === "paper"
@@ -1977,16 +1927,13 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     ...(viewer || isOwner ? [["paper", isOwner ? "Paper monitor" : "Paper workspace", "◉"]] as Array<[ViewId, string, string]> : []),
     ...(isOwner ? [["market", "Market data", "▥"], ["portfolio", "Portfolio replay", "◒"]] as Array<[ViewId, string, string]> : []),
   ];
-  const researchNavigation: Array<[ViewId, string, string]> = [
-    ...(isOwner ? [["experiments", "Experiments", "⌘"]] as Array<[ViewId, string, string]> : []),
-    ["provenance", "Data & trust", "⌬"],
-  ];
+  const researchNavigation: Array<[ViewId, string, string]> = isOwner
+    ? [["experiments", "Experiments", "⌘"]]
+    : [];
   const manageNavigation: Array<[ViewId, string, string]> = [
     ["about", "About & usage", "i"],
     ["profile", "Profile", "◉"],
     ["settings", "Settings", "⚙"],
-    ["help", "Help & contact", "?"],
-    ...(isOwner ? [["admin", "Admin / use tips", "⌘"]] as Array<[ViewId, string, string]> : []),
   ];
   const viewContent = visibleActiveView === "overview"
     ? renderOverview()
@@ -1998,17 +1945,11 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
           ? renderExperiments()
           : visibleActiveView === "portfolio"
             ? renderPortfolio()
-            : visibleActiveView === "provenance"
-              ? renderData()
-              : visibleActiveView === "about"
-                ? renderAbout()
-              : visibleActiveView === "admin"
-                ? renderProvenance()
-                : visibleActiveView === "profile"
-                  ? renderProfile()
-                  : visibleActiveView === "settings"
-                    ? renderSettings()
-                    : renderHelp();
+            : visibleActiveView === "about"
+              ? renderAbout()
+              : visibleActiveView === "profile"
+                ? renderProfile()
+                : renderSettings();
   const viewLabels: Record<ViewId, string> = {
     landing: "Landing",
     overview: "Home / dashboard",
@@ -2016,12 +1957,9 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     market: "Market data",
     experiments: "Experiments",
     portfolio: "Portfolio replay",
-    provenance: "Data & trust",
     about: "About & usage",
     profile: "Profile",
     settings: "Settings",
-    help: "Help & contact",
-    admin: "Admin / use tips",
   };
   const showFilters = isOwner && (visibleActiveView === "overview" || visibleActiveView === "experiments");
   const showImport = isOwner && (visibleActiveView === "overview" || visibleActiveView === "market");
@@ -2033,10 +1971,9 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
         <div className="brand"><AppMark /><div><strong>TradingLAB</strong><span>Trading workspace</span></div><button className="sidebar-close" type="button" aria-label="Fechar menu" onClick={() => setSidebarOpen(false)}>×</button></div>
         <div className="sidebar-scroll">
           <div className="sidebar-section"><div className="sidebar-label">Workspace</div><nav>{onlineNavigation.map(([id, label, icon]) => <button className={visibleActiveView === id ? "nav-item active" : "nav-item"} onClick={() => navigate(id)} key={id}><span aria-hidden="true">{icon}</span>{label}{id === "paper" ? <em>paper</em> : null}</button>)}</nav></div>
-          <div className="sidebar-section sidebar-research-section"><div className="sidebar-label">Research</div><nav>{researchNavigation.map(([id, label, icon]) => <button className={visibleActiveView === id ? "nav-item active" : "nav-item"} onClick={() => navigate(id)} key={id}><span aria-hidden="true">{icon}</span>{label}{id === "experiments" ? <em>owner</em> : null}</button>)}</nav></div>
-          <div className="sidebar-section sidebar-manage-section"><div className="sidebar-label">Manage</div><nav>{manageNavigation.map(([id, label, icon]) => <button className={visibleActiveView === id ? "nav-item active" : "nav-item"} onClick={() => navigate(id)} key={id}><span aria-hidden="true">{icon}</span>{label}{id === "admin" ? <em>owner</em> : null}</button>)}</nav></div>
+          {researchNavigation.length ? <div className="sidebar-section sidebar-research-section"><div className="sidebar-label">Research</div><nav>{researchNavigation.map(([id, label, icon]) => <button className={visibleActiveView === id ? "nav-item active" : "nav-item"} onClick={() => navigate(id)} key={id}><span aria-hidden="true">{icon}</span>{label}<em>owner</em></button>)}</nav></div> : null}
+          <div className="sidebar-section sidebar-manage-section"><div className="sidebar-label">Manage</div><nav>{manageNavigation.map(([id, label, icon]) => <button className={visibleActiveView === id ? "nav-item active" : "nav-item"} onClick={() => navigate(id)} key={id}><span aria-hidden="true">{icon}</span>{label}</button>)}</nav></div>
         </div>
-        <div className="sidebar-section sidebar-bottom"><div className="sidebar-label">Safety status</div><div className="safety-status"><span className="status-dot" /><div><strong>{isOwner ? "Owner workspace" : "Connected workspace"}</strong><small>{isOwner ? "online + offline tools" : "own account / public data"}</small></div></div><div className="version-box"><span>Product state</span><strong>V1.0 workspace</strong><small>live execution disabled</small></div></div>
       </aside>
       <div className="main-column">
         <header className="topbar"><div className="mobile-brand"><button className="mobile-menu-button" type="button" aria-label="Abrir menu" onClick={() => setSidebarOpen(true)}>☰</button><AppMark /><strong>TradingLAB</strong></div><div className="breadcrumb"><span>TradingLAB</span><b>/</b><strong>{viewLabels[visibleActiveView]}</strong></div><div className="topbar-right"><span className="sync-label"><span className="status-dot" /> {isOwner ? (localApiAvailable ? "Snapshot local conectado" : "Workspace privado") : "Workspace online"}</span>{viewer ? <><button className="avatar" type="button" aria-label="Abrir perfil" onClick={() => navigate("profile")}>{viewer.displayName.slice(0, 1).toUpperCase()}</button><a className="auth-link" href={signOutHref}>Sair</a></> : isOwner ? <span className="auth-link auth-link-local">Owner local</span> : <a className="auth-link auth-link-primary" href={signInHref}>Entrar</a>}</div></header>

@@ -52,10 +52,11 @@ test("authenticated visitors enter the app without private owner navigation", as
   const html = await response.text();
   assert.match(html, /class="sidebar\b/i);
   assert.match(html, /Home \/ dashboard/i);
-  assert.match(html, /Data (?:&amp;|&) trust/i);
+  assert.match(html, /About &amp; usage/i);
   assert.match(html, /Seu gráfico principal/i);
   assert.doesNotMatch(html, /View filters|Resumo filtrado|Comparação de famílias|Evidence matrix|Integrity checks/i);
   assert.doesNotMatch(html, /importe um resultado local|Carregue all_trials\.csv/i);
+  assert.doesNotMatch(html, /Data (?:&amp;|&) trust|Help &amp; contact|Admin \/ use tips/i);
   assert.doesNotMatch(html, /Portfolio replay/i);
   assert.doesNotMatch(html, /Market data/i);
 });
@@ -73,7 +74,8 @@ test("the configured owner enters the app with private navigation", async () => 
     assert.match(html, /class="sidebar\b/i);
     assert.match(html, /Market data/i);
     assert.match(html, /Portfolio replay/i);
-    assert.match(html, /live execution disabled/i);
+    assert.match(html, /Workspace privado/i);
+    assert.doesNotMatch(html, /Data (?:&amp;|&) trust|Help &amp; contact|Admin \/ use tips/i);
   } finally {
     if (previousOwnerId === undefined) delete process.env.TRADINGLAB_OWNER_USER_ID;
     else process.env.TRADINGLAB_OWNER_USER_ID = previousOwnerId;
@@ -105,11 +107,13 @@ test("keeps site assets inside the app source", async () => {
   assert.match(client, /Paper monitor/);
   assert.match(client, /api\/alpaca\/direct\/status/);
   assert.match(client, /About &amp; Usage/);
+  assert.match(client, /about-owner-section/);
+  assert.match(client, /Contratos, evidências e reprodução/);
   assert.match(client, /ASSET_DESCRIPTIONS/);
   assert.match(client, /Project Holdout/);
   assert.match(client, /public-shell/);
   assert.match(client, /Workspace/);
-  assert.match(client, /Data & trust/);
+  assert.doesNotMatch(client, /Data & trust|Help & contact|Admin \/ use tips/);
   assert.match(client, /interactive-chart-shell/);
   assert.match(client, /onWheel/);
   assert.match(client, /addEventListener\("wheel"/);

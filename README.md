@@ -10,11 +10,12 @@ implemented.
 The public web surface is a concise presentation landing page plus an
 **About & Usage** guide. After authentication, the application opens a compact
 trading workspace with separate **Workspace**, **Research** and **Manage**
-navigation. Owner-only market, portfolio and administration tools remain
-hidden from invited users; **Data & trust** gives all authenticated users a
-small, readable view of source and quality. The Paper bridge keeps credentials
-on the server and defaults to read-only monitoring; new Paper orders require
-explicit safety flags and a kill-switch release.
+navigation. Owner-only market, portfolio and research tools remain hidden from
+invited users. Explanations, data trust, contracts, evidence, reproduction and
+contact are centralized in **About & Usage**; use screens contain controls,
+states and results. The Paper bridge keeps credentials on the server and
+defaults to read-only monitoring; new Paper orders require explicit safety
+flags and a kill-switch release.
 
 The current integration boundary is documented in
 [`docs/ALPACA_PAPER_BRIDGE.md`](docs/ALPACA_PAPER_BRIDGE.md). Direct
@@ -168,9 +169,10 @@ metrics, asset and support guide lives in **About & Usage**, available before
 and after login. After login,
 the application opens the dashboard and groups its tools into **Workspace**
 (dashboard, Paper, private market data and portfolio replay), **Research**
-(owner experiments plus the public-facing Data & trust summary) and **Manage**
-(About & Usage, profile, settings, help and owner-only Admin/use tips). The owner gate hides
-Market data, Portfolio, Experiments and Admin from other accounts. It is
+(owner experiments) and **Manage** (About & Usage, profile and settings).
+Explanations, trust, contracts, evidence, reproduction and contact are
+centralized in **About & Usage**. The owner gate hides
+Market data, Portfolio and Experiments from other accounts. It is
 intentionally empty until a real local report is imported; it does not ship
 Yahoo rows or synthetic performance values. For local use:
 

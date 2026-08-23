@@ -600,6 +600,7 @@ body { background: var(--canvas); }
 .landing-access p { max-width: 530px; font-size: 10px; }
 
 .trust-overview-grid, .profile-grid, .settings-grid, .help-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.settings-grid-single { grid-template-columns: minmax(0, 1fr); }
 .trust-card { position: relative; display: grid; grid-template-columns: auto 1fr auto; align-items: start; gap: 10px; min-height: 132px; }
 .trust-card h2 { margin-bottom: 7px; }
 .trust-card p, .help-intro p, .help-contact p, .profile-card p { color: var(--ink-soft); font-size: 10px; line-height: 1.5; }
@@ -693,6 +694,10 @@ body { background: var(--canvas); }
 .about-trust-list > div, .about-access-table > div { display: grid; grid-template-columns: 150px 1fr; gap: 18px; border-bottom: 1px solid var(--line); padding: 14px 0; }
 .about-trust-list strong, .about-access-table strong { color: var(--blue-deep); font: 9px var(--font-geist-mono), monospace; text-transform: uppercase; }
 .about-trust-list span, .about-access-table span { color: var(--ink-soft); font-size: 10px; line-height: 1.5; }
+.about-owner-command { display: grid; grid-template-columns: 1fr minmax(260px, 1.2fr) auto; align-items: end; gap: 18px; margin-top: 18px; border: 1px solid var(--line); border-radius: 10px; background: #f8faff; padding: 15px; }
+.about-owner-command h3 { margin-top: 6px; }
+.about-owner-command p { margin: 0; }
+.about-owner-command pre { min-width: 0; overflow: auto; margin: 0; border: 1px solid #dce5f2; border-radius: 7px; background: #fff; padding: 10px; color: var(--ink); font: 9px/1.5 var(--font-geist-mono), monospace; white-space: pre-wrap; }
 .about-contact-grid { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .about-contact-grid p { max-width: 720px; margin: 0; }
 .about-actions { display: flex; flex-wrap: wrap; gap: 9px; padding-top: 25px; }
@@ -716,6 +721,7 @@ body { background: var(--canvas); }
   .topbar, .content { padding-inline: 26px; }
   .trust-overview-grid, .admin-tools-grid { grid-template-columns: 1fr; }
   .about-flow-grid, .about-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .about-owner-command { grid-template-columns: 1fr; align-items: stretch; }
 }
 
 @media (max-width: 760px) {

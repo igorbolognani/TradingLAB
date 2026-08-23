@@ -33,8 +33,9 @@ promovida automaticamente e nenhum botão de research envia ordem.
   uso, ativos, gráficos, métricas, dados, acesso, limites e contato.
 - Aplicativo autenticado com dashboard inicial e navegação compacta em três
   áreas: **Workspace** para dashboard, Paper, Market data e Portfolio replay;
-  **Research** para Experiments (owner) e Data & trust; e **Manage** para
-  About & Usage, Profile, Settings, Help e Admin/use tips (owner).
+  **Research** para Experiments (owner); e **Manage** para About & Usage,
+  Profile e Settings. Explicações, confiança dos dados, contratos, evidências,
+  reprodução e contato ficam centralizados no About & Usage.
 - Login nativo do ChatGPT e owner gate; Market data e Portfolio replay ficam
   disponíveis somente para a identidade do proprietário.
 - Candles OHLCV completos, volume e indicadores SMA/ATR calculados

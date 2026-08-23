@@ -25,8 +25,8 @@ navegação principal:
 | Grupo | Páginas | Acesso |
 | --- | --- | --- |
 | Workspace | Home, Paper, Market data, Portfolio replay | Paper para usuários conectados; Market e Portfolio para owner |
-| Research | Experiments, Data & trust | Experiments para owner; resumo de dados para usuários |
-| Manage | About & usage, Profile, Settings, Help & contact, Admin/use tips | Admin somente owner |
+| Research | Experiments | Somente owner |
+| Manage | About & usage, Profile, Settings | About é a única página explicativa |
 
 No mobile, a barra lateral vira um menu deslizante. O conteúdo principal não
 repete as abas: a toolbar superior mostra apenas a página atual e as ações
@@ -37,18 +37,15 @@ relevantes.
 - **Workspace** mostra informação para operar a ferramenta: candles, cotações,
   posições, ordens Paper, filtros, métricas e gráficos.
 - **About & usage** concentra a explicação completa do produto em uma página
-  única, acessível antes e depois do login.
-- **Data & trust** mostra somente um resumo operacional de fonte, qualidade,
-  horário, completude e estado histórico/realtime; o detalhe conceitual fica no
-  About & usage.
-- **Admin/use tips** concentra manifestos, hashes, contratos, parâmetros fixos,
-  mapa do produto, status de evidência e comandos de reprodução.
-- **Help & contact** oferece atalhos para About & usage, Settings e contato; não
-  duplica o manual dentro da tela de uso.
+  única, acessível antes e depois do login. Ela também reúne fonte, qualidade,
+  horários, limites, contratos, evidências, reprodução e contato.
+- Não existem páginas separadas apenas para explicação. Data & trust, Admin/use
+  tips e Help & contact foram absorvidos pelo About & usage; as telas de uso
+  exibem somente controles, estados e resultados necessários à tarefa.
 - Ajuda contextual aparece como um pequeno `?` junto ao campo. O texto abre no
   hover ou foco e pode ser desligado em Settings. Ativos mostram nome, tipo de
   exposição, função no universo e pontos de atenção; os demais campos explicam
-  a consequência prática da escolha sem alterar o layout principal.
+  cada opção e a consequência prática da escolha sem alterar o layout principal.
 
 ## Gráfico
 

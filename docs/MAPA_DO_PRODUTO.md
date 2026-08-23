@@ -91,8 +91,9 @@ para não confundir apresentação com operação:
   com telas, ativos, gráficos, métricas, dados, limites e contato.
 - **Aplicativo autenticado:** dashboard e ferramentas de uso. A navegação é
   dividida em **Workspace** (dashboard, Paper, Market data e Portfolio),
-  **Research** (Experiments e o resumo Data & trust) e **Manage** (About &
-  Usage, Profile, Settings, Help e Admin para o proprietário). O status `LIVE DESATIVADO` fica
+  **Research** (Experiments para o proprietário) e **Manage** (About &
+  Usage, Profile e Settings). Explicações, confiança dos dados, contratos,
+  evidências, reprodução e contato ficam somente no About & Usage. O status `LIVE DESATIVADO` fica
   visível porque replay e Paper controlado não são execução live.
 
 Isso permite que outra pessoa conheça o produto sem receber o snapshot Yahoo ou
