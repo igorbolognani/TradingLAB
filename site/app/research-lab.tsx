@@ -1538,9 +1538,10 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
                 ? "Abra candles completos do snapshot local e rode um replay de portfólio com dinheiro simulado. A execução externa continua desligada."
                 : "Veja o dashboard e os contratos de pesquisa. Dados locais, candles privados e controles do proprietário não são carregados para outras contas."}
             </p>
-            <div className="workspace-badges"><span>ORDENS DESATIVADAS</span><span>{isOwner ? "DADOS PRIVADOS" : "ACESSO PÚBLICO"}</span>{isOwner ? <span>{alpacaConnection === "connected" ? "ALPACA PAPER · LEITURA" : "ALPACA PAPER PENDENTE"}</span> : null}</div>
+            <div className="workspace-badges"><span>ORDENS DESATIVADAS</span><span>{isOwner ? "DADOS PRIVADOS" : "CONTA PRÓPRIA"}</span>{isOwner ? <span>{alpacaConnection === "connected" ? "ALPACA PAPER · LEITURA" : "ALPACA PAPER PENDENTE"}</span> : viewer ? <span>ALPACA PAPER · OAUTH</span> : null}</div>
             <div className="workspace-actions">
-              {isOwner ? <><button className="button button-outline" onClick={() => setActiveView("paper")}>Abrir Paper monitor</button><button className="button button-outline" onClick={() => setActiveView("market")}>Abrir Market data</button><button className="button button-outline" onClick={() => setActiveView("portfolio")}>Abrir Portfolio</button><a className="button button-primary" href="/alpaca/connect">Configurar OAuth</a></> : <span className="small-muted">Faça login como proprietário para a camada privada.</span>}
+              {isOwner ? <><button className="button button-outline" onClick={() => setActiveView("paper")}>Abrir Paper monitor</button><button className="button button-outline" onClick={() => setActiveView("market")}>Abrir Market data</button><button className="button button-outline" onClick={() => setActiveView("portfolio")}>Abrir Portfolio</button><a className="button button-primary" href="/alpaca/connect">Configurar OAuth</a></> : viewer ? null : <span className="small-muted">Faça login como proprietário para a camada privada.</span>}
+              {!isOwner && viewer ? <><button className="button button-outline" onClick={() => setActiveView("paper")}>Abrir Paper workspace</button><a className="button button-primary" href="/alpaca/connect">Conectar minha Alpaca</a></> : null}
             </div>
           </article>
           <article className="panel workspace-mode-card workspace-research-card">
@@ -1847,7 +1848,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     );
   }
 
-  const visibleActiveView: ViewId = !isOwner && (activeView === "paper" || activeView === "market" || activeView === "portfolio") ? "overview" : activeView;
+  const visibleActiveView: ViewId = !isOwner && !viewer && (activeView === "paper" || activeView === "market" || activeView === "portfolio") ? "overview" : activeView;
   function openCandleImporter() {
     if (candleFileInput.current) {
       candleFileInput.current.click();
@@ -1875,14 +1876,15 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
 
   const onlineNavigation: Array<[ViewId, string, string]> = [
     ["overview", "Home / dashboard", "◈"],
-    ...(isOwner ? [["paper", "Paper monitor", "◉"], ["market", "Market data", "▥"], ["portfolio", "Portfolio replay", "◒"]] as Array<[ViewId, string, string]> : []),
+    ...(viewer ? [["paper", isOwner ? "Paper monitor" : "Paper workspace", "◉"]] as Array<[ViewId, string, string]> : []),
+    ...(isOwner ? [["market", "Market data", "▥"], ["portfolio", "Portfolio replay", "◒"]] as Array<[ViewId, string, string]> : []),
   ];
   const researchNavigation: Array<[ViewId, string, string]> = [
     ["experiments", "Experiments", "⌘"],
     ["provenance", "Data & provenance", "⌬"],
   ];
   const workspaceTabs = [...onlineNavigation, ...researchNavigation];
-  const viewContent = visibleActiveView === "overview" ? renderOverview() : visibleActiveView === "paper" ? <PaperControl /> : visibleActiveView === "market" ? renderMarket() : visibleActiveView === "experiments" ? renderExperiments() : visibleActiveView === "portfolio" ? renderPortfolio() : renderProvenance();
+  const viewContent = visibleActiveView === "overview" ? renderOverview() : visibleActiveView === "paper" ? <PaperControl userMode={!isOwner} /> : visibleActiveView === "market" ? renderMarket() : visibleActiveView === "experiments" ? renderExperiments() : visibleActiveView === "portfolio" ? renderPortfolio() : renderProvenance();
 
   return (
     <main className="app-shell">
@@ -1890,7 +1892,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
         <div className="brand"><AppMark /><div><strong>TradingLAB</strong><span>Research workspace</span></div></div>
         <div className="sidebar-section"><div className="sidebar-label">Online workspace</div><nav>{onlineNavigation.map(([id, label, icon]) => <button className={visibleActiveView === id ? "nav-item active" : "nav-item"} onClick={() => setActiveView(id)} key={id}><span aria-hidden="true">{icon}</span>{label}</button>)}</nav></div>
         <div className="sidebar-section sidebar-research-section"><div className="sidebar-label">Offline research</div><nav>{researchNavigation.map(([id, label, icon]) => <button className={visibleActiveView === id ? "nav-item active" : "nav-item"} onClick={() => setActiveView(id)} key={id}><span aria-hidden="true">{icon}</span>{label}{id === "experiments" ? <em>run</em> : null}</button>)}</nav></div>
-        <div className="sidebar-section sidebar-bottom"><div className="sidebar-label">Access mode</div><div className="safety-status"><span className="status-dot" /><div><strong>{isOwner ? "Owner workspace" : "Public workspace"}</strong><small>{isOwner ? "online monitor + offline research" : "private data hidden"}</small></div></div><div className="version-box"><span>Current build</span><strong>V1.0 research</strong><small>live execution disabled</small></div></div>
+        <div className="sidebar-section sidebar-bottom"><div className="sidebar-label">Access mode</div><div className="safety-status"><span className="status-dot" /><div><strong>{isOwner ? "Owner workspace" : viewer ? "Connected workspace" : "Public workspace"}</strong><small>{isOwner ? "online monitor + offline research" : viewer ? "own Alpaca account only" : "private data hidden"}</small></div></div><div className="version-box"><span>Current build</span><strong>V1.0 research</strong><small>live execution disabled</small></div></div>
       </aside>
       <div className="main-column">
         <header className="topbar"><div className="mobile-brand"><AppMark /><strong>TradingLAB</strong></div><div className="breadcrumb"><span>TradingLAB</span><b>/</b><strong>{activeView === "overview" ? "Home / dashboard" : activeView === "paper" ? "Paper monitor" : activeView === "market" ? "Market data" : activeView === "experiments" ? "Experiments" : activeView === "portfolio" ? "Portfolio replay" : "Data & provenance"}</strong></div><div className="topbar-right"><span className="sync-label"><span className="status-dot" /> {isOwner ? (localApiAvailable ? "Snapshot local conectado" : "Workspace privado") : "Public research"}</span>{viewer ? <><span className="viewer-label">{viewer.displayName}</span><a className="auth-link" href={signOutHref}>Sair</a></> : <a className="auth-link auth-link-primary" href={signInHref}>Entrar com ChatGPT</a>}</div></header>

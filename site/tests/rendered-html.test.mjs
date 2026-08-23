@@ -121,3 +121,20 @@ test("keeps site assets inside the app source", async () => {
   assert.match(layout, /lang="pt-BR"/);
   await assert.rejects(access(new URL("public/_sites-preview", templateRoot)));
 });
+
+test("keeps the OAuth Paper pilot and Live execution gates server-side", async () => {
+  const [oauth, user, status, schema] = await Promise.all([
+    readFile(new URL("../app/alpaca-oauth.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/alpaca-user.ts", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/alpaca/user/status/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/trading-store.ts", import.meta.url), "utf8"),
+  ]);
+  assert.match(oauth, /scope: mode === "trade" \? "data trading" : "data"/);
+  assert.match(oauth, /live_connect_disabled/);
+  assert.match(user, /paper_pilot_allowlist_required/);
+  assert.match(user, /paper_execution_disabled/);
+  assert.match(user, /liveExecutionEnabled: booleanEnv/);
+  assert.match(status, /live_execution_enabled: false/);
+  assert.match(schema, /appendExecutionEvent/);
+  assert.match(schema, /encrypted_token/);
+});

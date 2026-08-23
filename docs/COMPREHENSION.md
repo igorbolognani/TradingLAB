@@ -41,6 +41,13 @@ around holdout governance.
   Resolução: implementar o adaptador live e um replay de eventos com relógios
   observáveis.
 
+- **OAuth multiusuário e persistência:** a ponte inicial usava um cookie
+  criptografado e era somente uma fundação de leitura. Agora o fluxo possui
+  tabelas D1 para conexões, intenções e eventos, mas a aprovação do Alpaca
+  Connect e um piloto com usuários convidados ainda são estados externos não
+  comprovados pelo código. Para resolver, aprovar o aplicativo, conectar uma
+  conta de teste e observar reconciliação Paper sem habilitar Live.
+
 ## Resolved knowledge gaps
 
 - Installed yfinance 1.6.0 exposes the explicit history arguments recorded in
@@ -48,3 +55,7 @@ around holdout governance.
 - Installed Backtesting.py 0.6.6 executes market orders at next open when
   `trade_on_close=False`, commissions both actual sides, and preserves terminal
   positions when `finalize_trades=False`. Adapter fixtures cover the translation.
+- OAuth Paper is user-scoped rather than owner-credential-scoped: the server
+  stores an encrypted token in D1, uses `data` by default, and refuses new
+  Paper orders unless `trading`, invited-user, execution and kill-switch gates
+  all pass. Live execution has no route in the current product.

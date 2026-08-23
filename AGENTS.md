@@ -1,7 +1,8 @@
 # TradingLAB repository rules
 
 TradingLAB remains a research-first product. It now also contains an
-optional, owner-only Alpaca Paper bridge under `site/app/api/alpaca/direct/`.
+optional owner-only Alpaca Paper bridge and a separately gated, user-owned
+Alpaca OAuth Paper pilot under `site/app/api/alpaca/`.
 Preserve the following invariants in every change:
 
 - The research core remains independent of any broker. Do not move broker
@@ -9,13 +10,21 @@ Preserve the following invariants in every change:
 - The Paper bridge uses direct HTTPS/WebSocket calls only; do not add a broker
   SDK. Credentials must remain server-side environment variables and must
   never reach browser code, logs, Git, reports, or generated artifacts.
-- The bridge is Paper-only and IEX-only. There is no live endpoint, live
-  configuration, custody, deposit, payment, or automatic promotion path.
+- The bridge is Paper-only and IEX-only. There is no live order path, custody,
+  deposit, payment, or automatic promotion path. Live OAuth is
+  preparation-only and must remain disabled by default.
 - New Paper orders require all explicit gates: owner identity, `paper`
   environment, `execution_enabled=true`, `paper_enabled=true`, and
   `kill_switch=false`. The default is disabled. Allowlist, integer quantity,
   notional ceiling, fresh quote, long-only sell checks, and broker
   reconciliation remain mandatory.
+- OAuth Paper orders, when the future pilot is explicitly enabled, require a
+  user identity, a granted `trading` scope, an invited-user allowlist, a
+  persistent execution ledger, Paper-only environment, risk limits and a
+  separate OAuth Paper kill switch. Read-only OAuth access is the default.
+- The D1-backed OAuth store contains encrypted tokens, connection metadata,
+  order intents and append-only execution events. Tokens never enter client
+  responses, Git, logs or browser storage.
 - Cancellation is a risk-reduction action and may remain available while the
   kill switch blocks new orders. Never weaken the kill switch to make a test
   pass.

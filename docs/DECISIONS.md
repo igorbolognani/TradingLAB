@@ -51,16 +51,17 @@ authenticated dataset identity and metadata, registered benchmark provenance,
 and intact checksummed artifacts. Reports and plots are evidence artifacts even
 though they do not change the analytical hash.
 
-## D-006 — External phases remain transport-free until a human gate
+## D-006 — Research phases remain transport-free
 
-**Status:** accepted for V0.3–V0.5.
+**Status:** accepted for the Python research core; the old site-only
+transport-free wording was superseded by D-010.
 
 V0.3 implements paper-readiness manifests, deterministic forward simulation,
-and fill reconciliation, but no Alpaca SDK, credential, endpoint, or order
-submission. V0.4 implements a confirmed-bar TradingView observer and a local
-payload parser. V0.5 implements an offline UTC Forex contract and replay plus
-an indicator-only MT5 observer. These phases complement V0.1/V0.2 while keeping
-external side effects absent from the research repository.
+and fill reconciliation while the Python research core remains broker-free.
+V0.4 implements a confirmed-bar TradingView observer and a local payload
+parser. V0.5 implements an offline UTC Forex contract and replay plus an
+indicator-only MT5 observer. These phases complement V0.1/V0.2 while keeping
+external side effects absent from the Python research core.
 
 ## D-007 — Future Alpaca opening semantics are MOO/OPG by default
 
@@ -93,3 +94,19 @@ now runs against the validated five-ETF snapshot through the local CLI, API and
 private interface for Development or Validation OOS. It does not add automatic
 optimization, access the Project Holdout, or make VectorBT authoritative. Any
 future accelerator must reproduce this contract before it is used for scale.
+
+## D-010 — OAuth Paper pilot is separate from the owner bridge
+
+**Status:** accepted and implemented as a gated site capability.
+
+The owner direct bridge keeps using server-side Paper API credentials and its
+own safety gates. A signed-in visitor may connect only their own Alpaca account
+through OAuth; the token is encrypted server-side and stored in D1 together
+with connection metadata. The default OAuth scope is market-data read access.
+
+Paper trading scope, invited-user execution, and the OAuth Paper order path are
+independent flags and default to disabled. Orders require a persistent intent
+and append-only event ledger, fresh IEX data, a symbol allowlist, integer
+quantity, notional and position limits, and user-level authorization. The Live
+authorization screen and Live API routing are preparation-only; there is no
+Live order endpoint or automatic promotion path.

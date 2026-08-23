@@ -9,6 +9,8 @@ export default async function AlpacaConnectPage() {
   const continueHref = user
     ? "/api/alpaca/oauth/start?env=paper"
     : chatGPTSignInPath("/alpaca/connect");
+  const paperTradingScopeEnabled = process.env.TRADINGLAB_OAUTH_PAPER_TRADING_SCOPE_ENABLED === "true";
+  const liveConnectEnabled = process.env.TRADINGLAB_OAUTH_LIVE_CONNECT_ENABLED === "true";
 
   return (
     <main className="oauth-shell">
@@ -50,8 +52,14 @@ export default async function AlpacaConnectPage() {
             <strong>Current TradingLAB request</strong>
             <span>
               Alpaca Paper · access to market-data endpoints · no trading scope
-              · no order submission in this version.
+              · no order submission until the pilot is explicitly enabled.
             </span>
+          </div>
+
+          <div className="oauth-mode-list" aria-label="TradingLAB authorization modes">
+            <div><strong>Paper · leitura</strong><span>Ativo agora: conta, posições, ordens e candles da sua própria conta.</span></div>
+            <div className={paperTradingScopeEnabled ? "" : "oauth-mode-disabled"}><strong>Paper · trading</strong><span>{paperTradingScopeEnabled ? "Disponível somente para usuários convidados do piloto." : "Bloqueado até aprovação, testes e convite do piloto."}</span></div>
+            <div className={liveConnectEnabled ? "" : "oauth-mode-disabled"}><strong>Live</strong><span>{liveConnectEnabled ? "Preparado para revisão final." : "Bloqueado nesta versão; nenhum dinheiro real é acessado."}</span></div>
           </div>
 
           <div className="oauth-actions">

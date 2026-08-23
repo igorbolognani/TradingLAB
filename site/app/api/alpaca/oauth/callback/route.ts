@@ -25,8 +25,8 @@ export async function GET(request: Request): Promise<Response> {
     return new Response("A sessão do ChatGPT não corresponde à autorização iniciada.", { status: 401 });
   }
   try {
-    const token = await exchangeAuthorizationCode(code, saved.verifier, saved.payload.userId, "paper");
-    const response = await storeToken(token);
+    const token = await exchangeAuthorizationCode(code, saved.verifier, saved.payload.userId, saved.payload.environment);
+    const response = await storeToken(token, user.email);
     const redirect = NextResponse.redirect(
       new URL("/?alpaca=connected", request.url),
     );

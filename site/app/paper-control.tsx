@@ -97,7 +97,8 @@ async function readPayload<T>(response: Response): Promise<T> {
   return payload;
 }
 
-export default function PaperControl() {
+export default function PaperControl({ userMode = false }: { userMode?: boolean }) {
+  const apiRoot = userMode ? "/api/alpaca/user" : "/api/alpaca/direct";
   const [symbol, setSymbol] = useState("SPY");
   const [timeframe, setTimeframe] = useState("1Min");
   const [status, setStatus] = useState<PaperStatus | null>(null);
@@ -120,21 +121,21 @@ export default function PaperControl() {
     refreshInFlight.current = true;
     setIsRefreshing(true);
     try {
-      const statusPayload = await readPayload<PaperStatus>(await fetch("/api/alpaca/direct/status", { cache: "no-store" }));
+      const statusPayload = await readPayload<PaperStatus>(await fetch(`${apiRoot}/status`, { cache: "no-store" }));
       setStatus(statusPayload);
       if (!statusPayload.configured) {
         setQuote(null);
         setAccount(null);
         setPositions([]);
         setOrders([]);
-        setNotice("O backend Paper está protegido, mas ainda não recebeu uma configuração válida.");
+        setNotice(userMode ? "Conecte uma conta Alpaca Paper para abrir este workspace." : "O backend Paper está protegido, mas ainda não recebeu uma configuração válida.");
         return;
       }
       const [quoteResponse, accountResponse, positionsResponse, ordersResponse] = await Promise.all([
-        fetch(`/api/alpaca/direct/quote?symbol=${encodeURIComponent(symbol)}`, { cache: "no-store" }),
-        fetch("/api/alpaca/direct/account", { cache: "no-store" }),
-        fetch("/api/alpaca/direct/positions", { cache: "no-store" }),
-        fetch("/api/alpaca/direct/orders?status=open", { cache: "no-store" }),
+        fetch(`${apiRoot}/quote?symbol=${encodeURIComponent(symbol)}&env=paper`, { cache: "no-store" }),
+        fetch(`${apiRoot}/account?env=paper`, { cache: "no-store" }),
+        fetch(`${apiRoot}/positions?env=paper`, { cache: "no-store" }),
+        fetch(`${apiRoot}/orders?status=open&env=paper`, { cache: "no-store" }),
       ]);
       setQuote(await readPayload<QuotePayload>(quoteResponse));
       setAccount(await readPayload<AccountPayload>(accountResponse));
@@ -147,7 +148,7 @@ export default function PaperControl() {
       refreshInFlight.current = false;
       setIsRefreshing(false);
     }
-  }, [symbol]);
+  }, [apiRoot, symbol, userMode]);
 
   useEffect(() => {
     // The initial refresh synchronizes the UI with the server-owned account.
@@ -160,7 +161,7 @@ export default function PaperControl() {
   async function loadBars() {
     try {
       setNotice("Carregando candles reais da Alpaca IEX…");
-      const response = await fetch(`/api/alpaca/direct/bars?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}&limit=120`, { cache: "no-store" });
+      const response = await fetch(`${apiRoot}/bars?symbol=${encodeURIComponent(symbol)}&timeframe=${timeframe}&limit=120&env=paper`, { cache: "no-store" });
       setBars(await readPayload<BarsPayload>(response));
       setNotice("Candles reais carregados; a última barra intraday pode estar incompleta.");
     } catch (error) {
@@ -171,7 +172,7 @@ export default function PaperControl() {
   async function submitOrder() {
     setIsSubmitting(true);
     try {
-      const response = await fetch("/api/alpaca/direct/orders", {
+      const response = await fetch(`${apiRoot}/orders`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ symbol, side, qty: Number(quantity), type: orderType, limit_price: orderType === "limit" ? Number(limitPrice) : undefined, time_in_force: "day" }),
@@ -189,7 +190,7 @@ export default function PaperControl() {
   async function cancelOrder(id?: string) {
     if (!window.confirm(id ? "Cancelar esta ordem Paper?" : "Cancelar todas as ordens Paper abertas?")) return;
     try {
-      const endpoint = id ? `/api/alpaca/direct/orders?id=${encodeURIComponent(id)}` : "/api/alpaca/direct/orders";
+      const endpoint = id ? `${apiRoot}/orders?id=${encodeURIComponent(id)}&env=paper` : `${apiRoot}/orders?env=paper`;
       const response = await fetch(endpoint, { method: "DELETE" });
       await readPayload(response);
       setNotice(id ? "Ordem cancelada." : "Ordens abertas canceladas.");
@@ -205,10 +206,10 @@ export default function PaperControl() {
 
   return (
     <section className="page-stack paper-control-page">
-      <div className="page-heading"><div><div className="eyebrow">Alpaca Paper / private control room</div><h1>Mercado, conta e execução em um único painel.</h1></div><span className={`api-badge ${status?.configured ? "api-online" : "api-offline"}`}><span />{status?.configured ? "Paper conectado" : "Paper aguardando configuração"}</span></div>
-      <div className="notice" role="status">{notice || "O painel consulta o backend privado e nunca expõe as credenciais no navegador."}</div>
+      <div className="page-heading"><div><div className="eyebrow">Alpaca Paper / {userMode ? "connected workspace" : "private control room"}</div><h1>Mercado, conta e execução em um único painel.</h1></div><span className={`api-badge ${status?.configured ? "api-online" : "api-offline"}`}><span />{status?.configured ? "Paper conectado" : "Paper aguardando configuração"}</span></div>
+      <div className="notice" role="status">{notice || (userMode ? "Conecte sua própria conta Alpaca; a autorização fica vinculada somente ao seu usuário." : "O painel consulta o backend privado e nunca expõe as credenciais no navegador.")}</div>
       <div className="paper-status-grid">
-        <article className="panel"><div className="panel-kicker">Connection</div><h2>{status?.configured ? "Conexão protegida" : "Conexão não disponível"}</h2><div className="paper-status-list"><span>Ambiente<strong>{status?.environment ?? "—"}</strong></span><span>Feed<strong>{status?.market_data_feed ?? "—"}</strong></span><span>Transporte<strong>{status?.transport ?? "—"}</strong></span><span>Realtime<strong>{status?.realtime_enabled ? "habilitado" : "desabilitado"}</strong></span></div>{status?.missing?.length ? <p className="panel-copy">Variáveis ausentes: {status.missing.join(", ")}</p> : null}</article>
+        <article className="panel"><div className="panel-kicker">Connection</div><h2>{status?.configured ? "Conexão protegida" : "Conexão não disponível"}</h2><div className="paper-status-list"><span>Ambiente<strong>{status?.environment ?? "—"}</strong></span><span>Feed<strong>{status?.market_data_feed ?? "—"}</strong></span><span>Transporte<strong>{status?.transport ?? "—"}</strong></span><span>Realtime<strong>{status?.realtime_enabled ? "habilitado" : "desabilitado"}</strong></span></div>{status?.missing?.length ? <p className="panel-copy">Variáveis ausentes: {status.missing.join(", ")}</p> : null}{userMode && !status?.configured ? <a className="button button-primary" href="/alpaca/connect">Conectar Alpaca Paper</a> : null}</article>
         <article className="panel"><div className="panel-kicker">Safety gate</div><h2>{orderLocked ? "Novas ordens bloqueadas" : "Paper pronto para envio"}</h2><div className="safety-tags"><span>{status?.kill_switch ? "KILL SWITCH ON" : "KILL SWITCH OFF"}</span><span>{status?.live_enabled ? "LIVE INVALID" : "LIVE OFF"}</span><span>MAX ${status?.max_order_notional_usd ?? "—"}</span></div><p className="panel-copy">{orderLocked ? `Motivo: ${lockReason}. Cancelamento continua disponível como ação de redução de risco.` : "Toda ordem passa por allowlist, quantidade, notional e posição disponível."}</p></article>
       </div>
       <div className="paper-grid">
