@@ -27,6 +27,7 @@ export default async function Page() {
       }
       signInHref={chatGPTSignInPath("/")}
       signOutHref={chatGPTSignOutPath("/")}
+      initialView={user || isLocalOwner ? "overview" : "landing"}
     />
   );
 }

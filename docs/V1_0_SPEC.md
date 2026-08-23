@@ -26,9 +26,14 @@ promovida automaticamente e nenhum botão de research envia ordem.
 - V0.2 preservada: reprodução independente em LEAN continua separada.
 - V0.3–V0.6 preservadas: bridges, replay de paper, TradingView, Forex e
   portfólio continuam broker-neutral.
-- Landing page pública compartilhável com login nativo do ChatGPT e owner gate;
-  filtros, experimentos, portfólio e proveniência privados para a identidade do
-  proprietário.
+- Landing page pública compartilhável, separada visualmente do aplicativo e
+  sem barra lateral operacional; ela apresenta método, fluxo, métricas e
+  limites.
+- Aplicativo autenticado com dashboard inicial e navegação em duas áreas:
+  **Online workspace** para dashboard, Market data e Portfolio replay; e
+  **Offline research** para Experiments e Data & provenance.
+- Login nativo do ChatGPT e owner gate; Market data e Portfolio replay ficam
+  disponíveis somente para a identidade do proprietário.
 - Candles OHLCV completos, volume e indicadores SMA/ATR calculados
   causalmente.
 - Endpoint local de candles históricos com manifesto, checksum, timezone,

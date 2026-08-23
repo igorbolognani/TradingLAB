@@ -136,11 +136,15 @@ The complete V1.0 contract and later gates are in
 
 ## Research Control Room
 
-The `site/` directory contains the public landing page and the Sites research
-surface. The landing page is shareable, while the owner gate hides Market data
-and Portfolio from other accounts. It is intentionally empty until a real
-local report is imported; it does not ship Yahoo rows or synthetic performance
-values. For local use:
+The `site/` directory contains two deliberately separate surfaces: a public
+landing page for presentation and an authenticated application for use. The
+landing page has no application sidebar and explains the method, workflow and
+metrics. After login, the application opens the dashboard and groups its tools
+into **Online workspace** (dashboard, private market data and portfolio replay)
+and **Offline research** (experiments and data/provenance). The owner gate hides
+Market data and Portfolio from other accounts. It is intentionally empty until
+a real local report is imported; it does not ship Yahoo rows or synthetic
+performance values. For local use:
 
 ```bash
 cd site && npm install && npm run dev

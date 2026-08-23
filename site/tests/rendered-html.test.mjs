@@ -4,13 +4,13 @@ import test from "node:test";
 
 const templateRoot = new URL("../", import.meta.url);
 
-async function render() {
+async function render(headers = {}) {
   const workerUrl = new URL("../dist/server/index.js", import.meta.url);
   workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
   const { default: worker } = await import(workerUrl.href);
 
   return worker.fetch(
-    new Request("http://localhost/", { headers: { accept: "text/html" } }),
+    new Request("https://tradinglab-public.example/", { headers: { accept: "text/html", ...headers } }),
     {
       ASSETS: {
         fetch: async () => new Response("Not found", { status: 404 }),
@@ -28,11 +28,47 @@ test("server-renders the TradingLAB control room", async () => {
   assert.match(html, /TradingLAB — Pesquisa quantitativa auditável/i);
   assert.match(html, /Quant \/ systematic research lab/i);
   assert.match(html, /Entrar com ChatGPT/i);
-  assert.match(html, /Public overview/i);
-  assert.match(html, /Local data hidden/i);
+  assert.match(html, /public-shell/i);
+  assert.match(html, /Pesquisa pública começa aqui/i);
+  assert.doesNotMatch(html, /class="sidebar"/i);
+  assert.doesNotMatch(html, /Home \/ dashboard/i);
   assert.doesNotMatch(html, /Market data/i);
   assert.doesNotMatch(html, /Portfolio controls/i);
   assert.doesNotMatch(html, /Your site is taking shape|codex-preview|react-loading-skeleton/i);
+});
+
+test("authenticated visitors enter the app without private owner navigation", async () => {
+  const response = await render({
+    "oai-authenticated-user-id": "viewer-test",
+    "oai-authenticated-user-email": "viewer@example.test",
+    "oai-authenticated-user-full-name": "Viewer",
+  });
+  const html = await response.text();
+  assert.match(html, /class="sidebar"/i);
+  assert.match(html, /Home \/ dashboard/i);
+  assert.match(html, /Offline research/i);
+  assert.doesNotMatch(html, /Portfolio replay/i);
+  assert.doesNotMatch(html, /Market data/i);
+});
+
+test("the configured owner enters the app with private navigation", async () => {
+  const previousOwnerId = process.env.TRADINGLAB_OWNER_USER_ID;
+  process.env.TRADINGLAB_OWNER_USER_ID = "owner-test";
+  try {
+    const response = await render({
+      "oai-authenticated-user-id": "owner-test",
+      "oai-authenticated-user-email": "owner@example.test",
+      "oai-authenticated-user-full-name": "Owner",
+    });
+    const html = await response.text();
+    assert.match(html, /class="sidebar"/i);
+    assert.match(html, /Market data/i);
+    assert.match(html, /Portfolio replay/i);
+    assert.match(html, /live execution disabled/i);
+  } finally {
+    if (previousOwnerId === undefined) delete process.env.TRADINGLAB_OWNER_USER_ID;
+    else process.env.TRADINGLAB_OWNER_USER_ID = previousOwnerId;
+  }
 });
 
 test("keeps site assets inside the app source", async () => {
@@ -43,6 +79,7 @@ test("keeps site assets inside the app source", async () => {
   ]);
   assert.match(page, /TRADINGLAB_OWNER_USER_ID/);
   assert.match(page, /isConfiguredOwner/);
+  assert.match(page, /initialView/);
   assert.match(client, /all_trials\.csv/);
   assert.match(client, /run-battery/);
   assert.match(client, /api\/candles/);
@@ -58,6 +95,9 @@ test("keeps site assets inside the app source", async () => {
   assert.match(client, /V1\.0/);
   assert.match(client, /Candles completos/);
   assert.match(client, /Project Holdout/);
+  assert.match(client, /public-shell/);
+  assert.match(client, /Online workspace/);
+  assert.match(client, /Offline research/);
   assert.match(layout, /lang="pt-BR"/);
   await assert.rejects(access(new URL("public/_sites-preview", templateRoot)));
 });

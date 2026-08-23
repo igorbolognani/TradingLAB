@@ -10,6 +10,7 @@ type ResearchLabProps = {
   viewer: { displayName: string; email: string } | null;
   signInHref: string;
   signOutHref: string;
+  initialView: "landing" | "overview";
 };
 
 type DashboardRow = {
@@ -784,8 +785,8 @@ function AppMark() {
   );
 }
 
-export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref }: ResearchLabProps) {
-  const [activeView, setActiveView] = useState<ViewId>("landing");
+export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, initialView }: ResearchLabProps) {
+  const [activeView, setActiveView] = useState<ViewId>(initialView);
   const [strategy, setStrategy] = useState("ALL");
   const [asset, setAsset] = useState("ALL");
   const [split, setSplit] = useState("ALL");
@@ -1063,9 +1064,15 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref }
               Resultado histórico não vira promessa: vira evidência para o próximo passo.
             </p>
             <div className="hero-actions">
-              <button className="button button-primary" onClick={() => setActiveView("overview")}>
-                Explorar a interface <span aria-hidden="true">→</span>
-              </button>
+              {viewer ? (
+                <button className="button button-primary" onClick={() => setActiveView("overview")}>
+                  Abrir o aplicativo <span aria-hidden="true">→</span>
+                </button>
+              ) : (
+                <a className="button button-primary" href={signInHref}>
+                  Entrar para explorar o aplicativo <span aria-hidden="true">→</span>
+                </a>
+              )}
               {isOwner ? (
                 <button className="button button-quiet" onClick={() => setActiveView("portfolio")}>
                   Abrir meu workspace privado
@@ -1123,12 +1130,12 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref }
       <>
         <section className="hero-grid">
           <div>
-            <div className="eyebrow">Research control room / V1.0</div>
-            <h1>Transforme hipóteses em evidência reproduzível.</h1>
+            <div className="eyebrow">Home / dashboard · V1.0</div>
+            <h1>Um painel de trabalho para acompanhar decisões e evidências.</h1>
             <p className="hero-copy">
-              Um painel único para explorar os resultados do TradingLAB sem misturar
-              dados, engines ou etapas de execução. Selecione um recorte, importe o
-              relatório local e compare as famílias com contexto.
+              Use o espaço online para consultar o mercado e acompanhar replays
+              simulados. Use o espaço offline para importar resultados, executar
+              experiências locais e conferir a origem de cada número.
             </p>
             <div className="hero-actions">
               <button className="button button-primary" onClick={() => setActiveView("experiments")}>
@@ -1147,6 +1154,28 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref }
             </div>
             <span className="status-dot" aria-label="ativo" />
           </div>
+        </section>
+
+        <section className="workspace-mode-grid" aria-label="Áreas do aplicativo">
+          <article className="panel workspace-mode-card workspace-online-card">
+            <div className="panel-kicker">Online workspace</div>
+            <h2>{isOwner ? "Mercado e portfólio no mesmo painel" : "Visão pública do workspace"}</h2>
+            <p className="panel-copy">
+              {isOwner
+                ? "Abra candles completos do snapshot local e rode um replay de portfólio com dinheiro simulado. A execução externa continua desligada."
+                : "Veja o dashboard e os contratos de pesquisa. Dados locais, candles privados e controles do proprietário não são carregados para outras contas."}
+            </p>
+            <div className="workspace-badges"><span>LIVE DESATIVADO</span><span>{isOwner ? "DADOS LOCAIS" : "ACESSO PÚBLICO"}</span></div>
+            <div className="workspace-actions">
+              {isOwner ? <><button className="button button-outline" onClick={() => setActiveView("market")}>Abrir Market data</button><button className="button button-outline" onClick={() => setActiveView("portfolio")}>Abrir Portfolio</button></> : <span className="small-muted">Faça login como proprietário para a camada privada.</span>}
+            </div>
+          </article>
+          <article className="panel workspace-mode-card workspace-research-card">
+            <div className="panel-kicker">Offline research</div>
+            <h2>Experimentos, dados e proveniência</h2>
+            <p className="panel-copy">Importe relatórios reais ou use a API local para testar Development e Validation OOS. O Holdout continua protegido.</p>
+            <div className="workspace-actions"><button className="button button-primary" onClick={() => setActiveView("experiments")}>Abrir ferramentas de pesquisa <span aria-hidden="true">→</span></button></div>
+          </article>
         </section>
 
         <section className="metric-grid" aria-label="Resumo filtrado">
@@ -1443,26 +1472,44 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref }
     );
   }
 
-  const navigation: Array<[ViewId, string, string]> = [
-    ["landing", "Home", "⌂"],
-    ["overview", "Overview", "◈"],
-    ...(isOwner ? [["market", "Market data", "▥"], ["portfolio", "Portfolio", "◒"]] as Array<[ViewId, string, string]> : []),
+  const visibleActiveView: ViewId = !isOwner && (activeView === "market" || activeView === "portfolio") ? "overview" : activeView;
+
+  if (visibleActiveView === "landing") {
+    return (
+      <main className="public-shell">
+        <header className="public-header">
+          <div className="public-brand"><AppMark /><div><strong>TradingLAB</strong><span>Quant / systematic research lab</span></div></div>
+          <div className="public-header-actions">
+            {viewer ? <button className="auth-link auth-link-primary" onClick={() => setActiveView("overview")}>Abrir aplicativo</button> : <a className="auth-link auth-link-primary" href={signInHref}>Entrar com ChatGPT</a>}
+          </div>
+        </header>
+        <div className="public-content">{renderLanding()}</div>
+        <footer className="public-footer"><span>TradingLAB · evidência antes da execução</span><span>Sem ordens externas · sem capital real</span></footer>
+      </main>
+    );
+  }
+
+  const onlineNavigation: Array<[ViewId, string, string]> = [
+    ["overview", "Home / dashboard", "◈"],
+    ...(isOwner ? [["market", "Market data", "▥"], ["portfolio", "Portfolio replay", "◒"]] as Array<[ViewId, string, string]> : []),
+  ];
+  const researchNavigation: Array<[ViewId, string, string]> = [
     ["experiments", "Experiments", "⌘"],
     ["provenance", "Data & provenance", "⌬"],
   ];
-  const visibleActiveView: ViewId = !isOwner && (activeView === "market" || activeView === "portfolio") ? "landing" : activeView;
-  const viewContent = visibleActiveView === "landing" ? renderLanding() : visibleActiveView === "overview" ? renderOverview() : visibleActiveView === "market" ? renderMarket() : visibleActiveView === "experiments" ? renderExperiments() : visibleActiveView === "portfolio" ? renderPortfolio() : renderProvenance();
+  const viewContent = visibleActiveView === "overview" ? renderOverview() : visibleActiveView === "market" ? renderMarket() : visibleActiveView === "experiments" ? renderExperiments() : visibleActiveView === "portfolio" ? renderPortfolio() : renderProvenance();
 
   return (
     <main className="app-shell">
       <aside className="sidebar">
         <div className="brand"><AppMark /><div><strong>TradingLAB</strong><span>Research workspace</span></div></div>
-        <div className="sidebar-section"><div className="sidebar-label">Workspace</div><nav>{navigation.map(([id, label, icon]) => <button className={visibleActiveView === id ? "nav-item active" : "nav-item"} onClick={() => setActiveView(id)} key={id}><span aria-hidden="true">{icon}</span>{label}{id === "experiments" ? <em>run</em> : null}</button>)}</nav></div>
-        <div className="sidebar-section sidebar-bottom"><div className="sidebar-label">Access mode</div><div className="safety-status"><span className="status-dot" /><div><strong>{isOwner ? "Private research" : "Public overview"}</strong><small>{isOwner ? "Owner workspace enabled" : "Local data hidden"}</small></div></div><div className="version-box"><span>Current build</span><strong>V1.0 research</strong><small>public surface + private lab</small></div></div>
+        <div className="sidebar-section"><div className="sidebar-label">Online workspace</div><nav>{onlineNavigation.map(([id, label, icon]) => <button className={visibleActiveView === id ? "nav-item active" : "nav-item"} onClick={() => setActiveView(id)} key={id}><span aria-hidden="true">{icon}</span>{label}</button>)}</nav></div>
+        <div className="sidebar-section sidebar-research-section"><div className="sidebar-label">Offline research</div><nav>{researchNavigation.map(([id, label, icon]) => <button className={visibleActiveView === id ? "nav-item active" : "nav-item"} onClick={() => setActiveView(id)} key={id}><span aria-hidden="true">{icon}</span>{label}{id === "experiments" ? <em>run</em> : null}</button>)}</nav></div>
+        <div className="sidebar-section sidebar-bottom"><div className="sidebar-label">Access mode</div><div className="safety-status"><span className="status-dot" /><div><strong>{isOwner ? "Owner workspace" : "Public workspace"}</strong><small>{isOwner ? "online monitor + offline research" : "private data hidden"}</small></div></div><div className="version-box"><span>Current build</span><strong>V1.0 research</strong><small>live execution disabled</small></div></div>
       </aside>
       <div className="main-column">
-        <header className="topbar"><div className="mobile-brand"><AppMark /><strong>TradingLAB</strong></div><div className="breadcrumb"><span>TradingLAB</span><b>/</b><strong>{activeView === "landing" ? "Home" : activeView === "overview" ? "Overview" : activeView === "market" ? "Market data" : activeView === "experiments" ? "Experiments" : activeView === "portfolio" ? "Portfolio" : "Data & provenance"}</strong></div><div className="topbar-right"><span className="sync-label"><span className="status-dot" /> {isOwner ? (localApiAvailable ? "Snapshot local conectado" : "Workspace privado") : "Public research"}</span>{viewer ? <><span className="viewer-label">{viewer.displayName}</span><a className="auth-link" href={signOutHref}>Sair</a></> : <a className="auth-link auth-link-primary" href={signInHref}>Entrar com ChatGPT</a>}</div></header>
-        <div className="content">{activeView !== "landing" ? <div className="filter-strip"><div className="filter-title"><span className="filter-icon">≡</span><strong>View filters</strong><span>{filteredRows.length} rows</span></div><div className="filter-control"><span className="filter-control-label">Strategy</span><select aria-label="Strategy" value={strategy} onChange={(event) => setStrategy(event.target.value)}><option value="ALL">All strategies</option>{STRATEGIES.map((item) => <option key={item} value={item}>{labelForStrategy(item)}</option>)}</select></div><div className="filter-control"><span className="filter-control-label">Asset</span><select aria-label="Asset" value={asset} onChange={(event) => setAsset(event.target.value)}><option value="ALL">All assets</option>{ASSETS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><div className="filter-control"><span className="filter-control-label">Split</span><select aria-label="Split" value={split} onChange={(event) => setSplit(event.target.value)}><option value="ALL">All splits</option>{SPLITS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><button className="reset-button" onClick={resetData}>Limpar dados</button></div> : null}{viewContent}</div>
+        <header className="topbar"><div className="mobile-brand"><AppMark /><strong>TradingLAB</strong></div><div className="breadcrumb"><span>TradingLAB</span><b>/</b><strong>{activeView === "overview" ? "Home / dashboard" : activeView === "market" ? "Market data" : activeView === "experiments" ? "Experiments" : activeView === "portfolio" ? "Portfolio replay" : "Data & provenance"}</strong></div><div className="topbar-right"><span className="sync-label"><span className="status-dot" /> {isOwner ? (localApiAvailable ? "Snapshot local conectado" : "Workspace privado") : "Public research"}</span>{viewer ? <><span className="viewer-label">{viewer.displayName}</span><a className="auth-link" href={signOutHref}>Sair</a></> : <a className="auth-link auth-link-primary" href={signInHref}>Entrar com ChatGPT</a>}</div></header>
+        <div className="content"><div className="filter-strip"><div className="filter-title"><span className="filter-icon">≡</span><strong>View filters</strong><span>{filteredRows.length} rows</span></div><div className="filter-control"><span className="filter-control-label">Strategy</span><select aria-label="Strategy" value={strategy} onChange={(event) => setStrategy(event.target.value)}><option value="ALL">All strategies</option>{STRATEGIES.map((item) => <option key={item} value={item}>{labelForStrategy(item)}</option>)}</select></div><div className="filter-control"><span className="filter-control-label">Asset</span><select aria-label="Asset" value={asset} onChange={(event) => setAsset(event.target.value)}><option value="ALL">All assets</option>{ASSETS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><div className="filter-control"><span className="filter-control-label">Split</span><select aria-label="Split" value={split} onChange={(event) => setSplit(event.target.value)}><option value="ALL">All splits</option>{SPLITS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><button className="reset-button" onClick={resetData}>Limpar dados</button></div>{viewContent}</div>
         <footer className="footer"><span>TradingLAB · Quant / Systematic Research Lab</span><span>Research first · evidence before execution</span></footer>
       </div>
     </main>

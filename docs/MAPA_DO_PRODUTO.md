@@ -81,6 +81,22 @@ uma promessa de que a estratégia funciona no futuro.
 
 ## Como Research e Execution ficam na mesma interface
 
+Antes das funções futuras de Execution, o produto já separa duas experiências
+para não confundir apresentação com operação:
+
+- **Landing pública:** primeira tela compartilhável, sem barra lateral e sem
+  dados operacionais. Explica o que o laboratório faz e como interpretar seus
+  resultados.
+- **Aplicativo autenticado:** dashboard e ferramentas de uso. A navegação do
+  proprietário é dividida em **Online workspace** (monitoramento de mercado e
+  replay de portfólio) e **Offline research** (experimentos, dados e
+  proveniência). O status `LIVE DESATIVADO` fica visível porque replay não é
+  execução real.
+
+Isso permite que outra pessoa conheça o produto sem receber o snapshot Yahoo ou
+os controles privados, enquanto o proprietário trabalha no mesmo endereço com
+permissões diferentes.
+
 Na tela, a pessoa pode enxergar dois espaços:
 
 ### Research workspace

@@ -7,15 +7,20 @@ substitui os contratos Python.
 
 ## Camadas de acesso
 
-A página inicial é pública e compartilhável. Ela explica o método, as
+A página inicial é pública e compartilhável, com um layout próprio de
+apresentação e sem a barra lateral do aplicativo. Ela explica o método, as
 vantagens, as métricas e o fluxo de pesquisa sem expor snapshots de mercado.
-O login nativo **Entrar com ChatGPT** identifica a pessoa visitante.
+Depois do login nativo **Entrar com ChatGPT**, a pessoa entra no aplicativo e
+recebe o dashboard, a navegação e as ferramentas correspondentes à sua
+permissão.
 
 No servidor, a conta do proprietário é comparada com o segredo de ambiente
 `TRADINGLAB_OWNER_USER_ID` configurado no Sites. Somente essa identidade recebe
-as páginas **Market data** e **Portfolio**, que dependem do snapshot local e da
-API em `127.0.0.1`. Outras contas continuam com a superfície pública,
-Overview, Experiments e Data & provenance. O código não adiciona OAuth externo;
+as páginas **Market data** e **Portfolio replay**, que dependem do snapshot
+local e da API em `127.0.0.1`. Outras contas autenticadas entram no dashboard e
+recebem Experiments e Data & provenance, mas não recebem a camada privada de
+dados e portfólio. A barra lateral do aplicativo é dividida em **Online
+workspace** e **Offline research**. O código não adiciona OAuth externo;
 um novo provedor só deve entrar depois de uma decisão explícita sobre
 identidade, consentimento e credenciais.
 
