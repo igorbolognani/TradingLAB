@@ -95,7 +95,9 @@ Pode conter:
 - parâmetros congelados;
 - decisões humanas.
 
-O acesso deve ser privado para o proprietário e colaboradores autorizados.
+O workspace de pesquisa deve ser privado para o proprietário e colaboradores
+autorizados; a landing e a explicação pública podem ser acessadas por qualquer
+visitante.
 
 ### Execution workspace
 

@@ -5,6 +5,20 @@ estratégia/ativo/período, carregar `all_trials.csv` ou JSON e preparar uma
 execução reprodutível. O site não contém dados Yahoo, não executa ordens e não
 substitui os contratos Python.
 
+## Camadas de acesso
+
+A página inicial é pública e compartilhável. Ela explica o método, as
+vantagens, as métricas e o fluxo de pesquisa sem expor snapshots de mercado.
+O login nativo **Entrar com ChatGPT** identifica a pessoa visitante.
+
+No servidor, a conta do proprietário é comparada com o segredo de ambiente
+`TRADINGLAB_OWNER_USER_ID` configurado no Sites. Somente essa identidade recebe
+as páginas **Market data** e **Portfolio**, que dependem do snapshot local e da
+API em `127.0.0.1`. Outras contas continuam com a superfície pública,
+Overview, Experiments e Data & provenance. O código não adiciona OAuth externo;
+um novo provedor só deve entrar depois de uma decisão explícita sobre
+identidade, consentimento e credenciais.
+
 ## Usar
 
 ```bash

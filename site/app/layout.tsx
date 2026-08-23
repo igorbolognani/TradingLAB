@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TradingLAB Research Control Room",
-  description: "Local-first interface for auditable quantitative research.",
+  title: "TradingLAB — Pesquisa quantitativa auditável",
+  description: "Um laboratório para transformar hipóteses de mercado em evidência reproduzível, com uma camada pública e um workspace privado.",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",

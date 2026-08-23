@@ -136,9 +136,11 @@ The complete V1.0 contract and later gates are in
 
 ## Research Control Room
 
-The `site/` directory contains the interface source for the private Sites
-surface. It is intentionally empty until a real local report is imported; it
-does not ship Yahoo rows or synthetic performance values. For local use:
+The `site/` directory contains the public landing page and the Sites research
+surface. The landing page is shareable, while the owner gate hides Market data
+and Portfolio from other accounts. It is intentionally empty until a real
+local report is imported; it does not ship Yahoo rows or synthetic performance
+values. For local use:
 
 ```bash
 cd site && npm install && npm run dev
@@ -151,10 +153,10 @@ running, request a Development or Validation battery. Project Holdout,
 broker execution, paper trading, and live trading remain blocked. The GitHub
 handoff is documented in [`docs/GITHUB_MIGRATION.md`](docs/GITHUB_MIGRATION.md).
 
-The private Sites surface can also call this local API when both are used on
-the same computer and `uv run tradinglab-dashboard` is running. CORS is limited
-to the local development origins and the private TradingLAB Sites origin; the
-API still binds only to `127.0.0.1` and is not an internet endpoint.
+The Sites surface can also call this local API when both are used on the same
+computer and `uv run tradinglab-dashboard` is running. CORS is limited to the
+local development origins and the TradingLAB Sites origin; the API still binds
+only to `127.0.0.1` and is not an internet endpoint.
 
 ### Candles e qualidade de dados
 
