@@ -1615,21 +1615,6 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
                 );
               })}
             </div> : <EmptyState message="Carregue all_trials.csv ou um JSON exportado para visualizar valores reais." />}
-            <div className="chart-footnote">
-              Visualização de resumo. A mediana evita que uma única configuração seja
-              tratada como conclusão da família.
-            </div>
-          </article>
-
-          <article className="panel panel-integrity">
-            <div className="panel-kicker">Control checks</div>
-            <h2>O que permanece sob controle</h2>
-            <div className="integrity-list">
-              <div><span className="check">✓</span><span>Close confirmado → próximo open</span></div>
-              <div><span className="check">✓</span><span>RAW, actions e normalized separados</span></div>
-              <div><span className="check">✓</span><span>Holdout não executável pelo painel</span></div>
-              <div><span className="check">✓</span><span>Sem broker, credenciais ou ordens</span></div>
-            </div>
           </article>
         </section>
 

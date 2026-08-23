@@ -76,6 +76,7 @@ test("the configured owner enters the app with private navigation", async () => 
     assert.match(html, /Portfolio replay/i);
     assert.match(html, /Workspace privado/i);
     assert.doesNotMatch(html, /Data (?:&amp;|&) trust|Help &amp; contact|Admin \/ use tips/i);
+    assert.doesNotMatch(html, /Control checks|O que permanece sob controle/i);
   } finally {
     if (previousOwnerId === undefined) delete process.env.TRADINGLAB_OWNER_USER_ID;
     else process.env.TRADINGLAB_OWNER_USER_ID = previousOwnerId;
