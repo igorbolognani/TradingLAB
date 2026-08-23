@@ -16,8 +16,8 @@ export const metadata: Metadata = {
   title: "TradingLAB — Ferramentas de trading com clareza e controle",
   description: "Uma plataforma para visualizar o mercado, testar cenários, simular portfólios e acompanhar métricas com controle.",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: "/tradinglab-mark.svg",
+    shortcut: "/tradinglab-mark.svg",
   },
 };
 

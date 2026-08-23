@@ -1,0 +1,19 @@
+<svg width="430" height="112" viewBox="0 0 430 112" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="trend" x1="24" y1="85" x2="89" y2="24" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#76D8C2"/>
+      <stop offset="0.52" stop-color="#73A6FF"/>
+      <stop offset="1" stop-color="#F5B270"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="104" height="104" rx="28" fill="#102237"/>
+  <path d="M21 86H91M21 67H91M21 48H91M21 29H91" stroke="#FFFFFF" stroke-opacity="0.08" stroke-width="2"/>
+  <path d="M35 39V91M55 28V80M75 19V68" stroke="#FFFFFF" stroke-opacity="0.3" stroke-width="3" stroke-linecap="round"/>
+  <rect x="27" y="51" width="16" height="26" rx="5" fill="#76D8C2"/>
+  <rect x="47" y="40" width="16" height="26" rx="5" fill="#73A6FF"/>
+  <rect x="67" y="29" width="16" height="25" rx="5" fill="#F5B270"/>
+  <path d="M18 91C34 82 42 75 52 69C63 62 70 46 80 39C85 35 90 29 96 21" stroke="url(#trend)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="96" cy="21" r="5" fill="#F5B270" stroke="#102237" stroke-width="3"/>
+  <text x="132" y="61" fill="#102237" font-family="Arial, Helvetica, sans-serif" font-size="36" font-weight="700" letter-spacing="-1.5">TradingLAB</text>
+  <text x="135" y="84" fill="#637287" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="700" letter-spacing="2.8">MARKET TOOLS · CLEARER DECISIONS</text>
+</svg>

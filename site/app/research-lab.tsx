@@ -1029,13 +1029,9 @@ function PortfolioChart({ equity }: { equity: PortfolioEquityPoint[] }) {
 }
 
 function AppMark() {
-  return (
-    <div className="app-mark" aria-hidden="true">
-      <span />
-      <span />
-      <span />
-    </div>
-  );
+  // This is a tiny local SVG mark; image optimization would add overhead for a 128px asset.
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img className="app-mark" src="/tradinglab-mark.svg" alt="" aria-hidden="true" />;
 }
 
 export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, initialView }: ResearchLabProps) {

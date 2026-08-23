@@ -54,11 +54,7 @@ button:disabled { cursor: wait; opacity: .62; }
 .brand { padding: 0 12px 34px; }
 .brand strong { display: block; font-size: 15px; letter-spacing: -.02em; }
 .brand span { display: block; margin-top: 3px; color: var(--ink-faint); font-size: 10px; letter-spacing: .02em; }
-.app-mark { display: grid; grid-template-columns: repeat(3, 6px); align-items: end; gap: 3px; width: 27px; height: 27px; padding: 5px; border-radius: 9px; background: var(--ink); }
-.app-mark span { display: block; border-radius: 4px; background: #73a6ff; }
-.app-mark span:nth-child(1) { height: 7px; }
-.app-mark span:nth-child(2) { height: 12px; background: #8bd8bd; }
-.app-mark span:nth-child(3) { height: 17px; background: #f5b270; }
+.app-mark { display: block; width: 30px; height: 30px; flex: 0 0 auto; border-radius: 9px; }
 .sidebar-label, .panel-kicker, .eyebrow { color: var(--ink-faint); font-size: 10px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
 .sidebar-section { padding: 0 8px; }
 .sidebar-section nav { display: grid; gap: 5px; margin-top: 13px; }
