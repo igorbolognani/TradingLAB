@@ -29,6 +29,7 @@ test("server-renders the TradingLAB control room", async () => {
   assert.match(html, /Trading tools · decisão com controle/i);
   assert.match(html, /Trading workflow/i);
   assert.match(html, /Gráficos completos/i);
+  assert.match(html, /Gráfico de mercado/i);
   assert.match(html, /Entrar com ChatGPT/i);
   assert.match(html, /public-shell/i);
   assert.match(html, /Comece pela experiência pública/i);
@@ -103,6 +104,9 @@ test("keeps site assets inside the app source", async () => {
   assert.match(client, /Offline research/);
   assert.match(client, /interactive-chart-shell/);
   assert.match(client, /onWheel/);
+  assert.match(client, /addEventListener\("wheel"/);
+  assert.match(client, /workspace-tabbar/);
+  assert.match(client, /Inserir candles/);
   assert.match(client, /localStorage/);
   assert.match(client, /Linha/);
   assert.match(client, /Desfazer/);

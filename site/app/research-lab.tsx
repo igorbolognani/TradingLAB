@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type ViewId = "landing" | "overview" | "market" | "experiments" | "portfolio" | "provenance";
 
@@ -823,7 +823,7 @@ function CandleChart({ candles, symbol }: { candles: Candle[]; symbol: string })
     return () => window.removeEventListener("resize", draw);
   }, [chartMetrics, drawings, draftDrawing, hover, indicatorVisibility, valid, viewWindow, visible]);
 
-  function chartPoint(clientX: number, clientY: number) {
+  const chartPoint = useCallback((clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
     if (!canvas || !visible.length) return null;
     const rect = canvas.getBoundingClientRect();
@@ -839,7 +839,7 @@ function CandleChart({ candles, symbol }: { candles: Candle[]; symbol: string })
     const localIndex = Math.max(0, Math.min(visible.length - 1, Math.floor((xPosition - left) / slot)));
     const price = chartMetrics.maximum - ((yPosition - top) / (priceBottom - top)) * chartMetrics.range;
     return { x: xPosition, y: yPosition, index: viewWindow.start + localIndex, price };
-  }
+  }, [chartMetrics, viewWindow.start, visible.length]);
 
   function nextDrawing(drawing: Omit<ChartDrawing, "id">): ChartDrawing {
     if (drawingIdRef.current == null) drawingIdRef.current = Date.now();
@@ -892,21 +892,35 @@ function CandleChart({ candles, symbol }: { candles: Candle[]; symbol: string })
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   }
 
-  function handleWheel(event: ReactWheelEvent<HTMLCanvasElement>) {
-    if (!visible.length || valid.length <= 24) return;
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const handleNativeWheel = (event: WheelEvent) => {
+      if (!visible.length || valid.length <= 24) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const point = chartPoint(event.clientX, event.clientY);
+      if (!point) return;
+      const currentCount = viewWindow.end - viewWindow.start;
+      const step = Math.max(4, Math.round(currentCount * 0.18));
+      const nextCount = Math.max(24, Math.min(valid.length, currentCount + (event.deltaY > 0 ? step : -step)));
+      const rect = canvas.getBoundingClientRect();
+      const chartWidth = Math.max(120, rect.width - 74);
+      const ratio = Math.max(0, Math.min(1, (point.x - 60) / chartWidth));
+      const anchor = viewWindow.start + Math.floor(ratio * currentCount);
+      const start = Math.max(0, Math.min(valid.length - nextCount, anchor - Math.floor(ratio * nextCount)));
+      setView({ start, end: start + nextCount });
+      setHover(null);
+    };
+
+    canvas.addEventListener("wheel", handleNativeWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", handleNativeWheel);
+  }, [chartMetrics, chartPoint, valid.length, viewWindow, visible.length]);
+
+  function preventChartScroll(event: ReactWheelEvent<HTMLCanvasElement>) {
     event.preventDefault();
-    const point = chartPoint(event.clientX, event.clientY);
-    if (!point) return;
-    const currentCount = viewWindow.end - viewWindow.start;
-    const step = Math.max(4, Math.round(currentCount * 0.18));
-    const nextCount = Math.max(24, Math.min(valid.length, currentCount + (event.deltaY > 0 ? step : -step)));
-    const rect = event.currentTarget.getBoundingClientRect();
-    const chartWidth = Math.max(120, rect.width - 74);
-    const ratio = Math.max(0, Math.min(1, (point.x - 60) / chartWidth));
-    const anchor = viewWindow.start + Math.floor(ratio * currentCount);
-    const start = Math.max(0, Math.min(valid.length - nextCount, anchor - Math.floor(ratio * nextCount)));
-    setView({ start, end: start + nextCount });
-    setHover(null);
+    event.stopPropagation();
   }
 
   function resetView() {
@@ -931,7 +945,7 @@ function CandleChart({ candles, symbol }: { candles: Candle[]; symbol: string })
         <button type="button" className="chart-tool-button chart-clear-button" onClick={() => setDrawings([])} disabled={!drawings.length}>Limpar</button>
       </div>
       <div className={`chart-stage chart-stage-${tool}`}>
-        <canvas ref={canvasRef} className="candle-canvas" aria-label={`Gráfico interativo de candles ${symbol}`} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={() => { if (!dragRef.current) setHover(null); }} onWheel={handleWheel} onDoubleClick={resetView} />
+        <canvas ref={canvasRef} className="candle-canvas" aria-label={`Gráfico interativo de candles ${symbol}`} onPointerDown={handlePointerDown} onPointerMove={handlePointerMove} onPointerUp={handlePointerUp} onPointerLeave={() => { if (!dragRef.current) setHover(null); }} onWheel={preventChartScroll} onDoubleClick={resetView} />
         {activeCandle && hover ? <div className="chart-tooltip" style={{ left: `${Math.min(Math.max(hover.x + 14, 10), 260)}px`, top: `${Math.min(Math.max(hover.y + 12, 10), 245)}px` }}><div className="chart-tooltip-heading"><strong>{activeCandle.session}</strong><span>{activeCandle.is_complete === false ? "aberta" : "encerrada"}</span></div><div className="chart-tooltip-grid"><span>O <b>{formatPrice(activeCandle.open)}</b></span><span>H <b>{formatPrice(activeCandle.high)}</b></span><span>L <b>{formatPrice(activeCandle.low)}</b></span><span>C <b>{formatPrice(activeCandle.close)}</b></span><span>VOL <b>{activeCandle.volume == null ? "—" : Math.round(activeCandle.volume).toLocaleString("en-US")}</b></span><span>Δ <b>{activeCandle.close != null && activeCandle.open != null ? formatSignedPercent((activeCandle.close - activeCandle.open) / activeCandle.open) : "—"}</b></span></div></div> : null}
       </div>
       <div className="chart-footer"><span>Roda: zoom · arraste com <strong>Mover</strong> · clique para marcar · duplo clique para ajustar</span><span>{viewWindow.start + 1}–{viewWindow.end} de {valid.length} barras</span></div>
@@ -1047,8 +1061,17 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
   const fileInput = useRef<HTMLInputElement>(null);
   const candleFileInput = useRef<HTMLInputElement>(null);
   const portfolioFileInput = useRef<HTMLInputElement>(null);
+  const autoLoadedDatasetRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!isOwner) {
+      const clearPrivateState = window.setTimeout(() => {
+        setLocalApiAvailable(false);
+        setLocalDatasetId("");
+        setExternalFileAvailable(false);
+      }, 0);
+      return () => window.clearTimeout(clearPrivateState);
+    }
     let active = true;
     fetch("http://127.0.0.1:8787/api/health")
       .then(async (response) => {
@@ -1076,7 +1099,48 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     return () => {
       active = false;
     };
-  }, []);
+  }, [isOwner]);
+
+  useEffect(() => {
+    if (
+      !isOwner ||
+      !localApiAvailable ||
+      !localDatasetId ||
+      candleSource !== "snapshot" ||
+      candlePayload ||
+      autoLoadedDatasetRef.current === localDatasetId
+    ) {
+      return;
+    }
+
+    autoLoadedDatasetRef.current = localDatasetId;
+    let active = true;
+    setIsLoadingCandles(true);
+    setCandleNotice("Conectando o gráfico ao snapshot validado…");
+    const query = new URLSearchParams({ dataset_id: localDatasetId, symbol: "SPY", limit: "240" });
+    fetch(`http://127.0.0.1:8787/api/candles?${query.toString()}`)
+      .then(async (response) => {
+        const payload = (await response.json()) as CandlePayload & { error?: string };
+        if (!response.ok) throw new Error(payload.error ?? "snapshot recusado");
+        return payload;
+      })
+      .then((payload) => {
+        if (!active) return;
+        setCandlePayload(payload);
+        setCandleSymbol(payload.symbol);
+        setCandleNotice(`${payload.returned_row_count.toLocaleString("en-US")} candles reais carregados automaticamente.`);
+      })
+      .catch((error) => {
+        if (active) setCandleNotice(`O gráfico está pronto, mas o snapshot não respondeu: ${error instanceof Error ? error.message : "erro desconhecido"}.`);
+      })
+      .finally(() => {
+        if (active) setIsLoadingCandles(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [candlePayload, candleSource, isOwner, localApiAvailable, localDatasetId]);
 
   const filteredRows = useMemo(
     () =>
@@ -1286,6 +1350,56 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     }
   }
 
+  function renderMarketPreview({ publicMode = false }: { publicMode?: boolean } = {}) {
+    const market = candlePayload;
+    const latest = market?.calculated.latest;
+    const calculated = market?.calculated;
+    const canUsePrivateSnapshot = isOwner && !publicMode && Boolean(localDatasetId);
+    const sourceLabel = publicMode || !canUsePrivateSnapshot ? "CSV deste navegador" : "Snapshot privado";
+
+    return (
+      <section id={publicMode ? "market-preview" : undefined} className={`panel chart-workspace-card ${publicMode ? "chart-workspace-public" : ""}`}>
+        <div className="panel-heading">
+          <div>
+            <div className="panel-kicker">{publicMode ? "Market workspace" : "Chart workspace"}</div>
+            <h2>{publicMode ? "Gráfico de mercado" : "Seu gráfico principal"}</h2>
+            <p className="panel-copy">{publicMode ? "Veja como o workspace funciona e carregue um CSV real para experimentar candles, zoom, cursor e marcações." : "O gráfico fica no centro do trabalho: acompanhe preço, volume, indicadores e contexto antes de abrir outra ferramenta."}</p>
+          </div>
+          <span className={`api-badge ${market ? "api-online" : "api-offline"}`}><span />{market ? `${market.symbol} · ${market.freshness.realtime_active ? "tempo real" : "histórico"}` : publicMode ? "pronto para dados" : localApiAvailable ? "snapshot conectado" : "aguardando fonte"}</span>
+        </div>
+        <div className="chart-workspace-controls">
+          <div className="chart-source-note"><span>FONTE</span><strong>{market ? market.source.provider : sourceLabel}</strong></div>
+          <label htmlFor={publicMode ? "public-candle-symbol" : "overview-candle-symbol"}>Ativo<select id={publicMode ? "public-candle-symbol" : "overview-candle-symbol"} value={candleSymbol} onChange={(event) => setCandleSymbol(event.target.value)}>{ASSETS.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
+          <label htmlFor={publicMode ? "public-candle-limit" : "overview-candle-limit"}>Histórico<select id={publicMode ? "public-candle-limit" : "overview-candle-limit"} value={candleLimit} onChange={(event) => setCandleLimit(event.target.value)}><option value="120">120 barras</option><option value="240">240 barras</option><option value="500">500 barras</option><option value="1000">1.000 barras</option></select></label>
+          <div className="chart-workspace-actions">
+            {canUsePrivateSnapshot ? <button className="button button-primary" type="button" onClick={() => void loadCandles()} disabled={isLoadingCandles}>{isLoadingCandles ? "Validando…" : "Atualizar gráfico"}</button> : null}
+            <button className="button button-outline" type="button" onClick={() => candleFileInput.current?.click()}>Inserir CSV</button>
+            <input ref={candleFileInput} className="visually-hidden" type="file" accept=".csv,text/csv" onChange={(event) => void handleCandleFile(event)} />
+          </div>
+        </div>
+        {candleNotice ? <div className="notice" role="status">{candleNotice}</div> : null}
+        {market ? (
+          <>
+            <div className="chart-market-summary" aria-label="Resumo do ativo">
+              <div><span>ÚLTIMO</span><strong>{formatPrice(latest?.close)}</strong></div>
+              <div><span>VARIAÇÃO</span><strong className={(calculated?.change_pct ?? 0) >= 0 ? "positive" : "negative"}>{formatOptionalPercent(calculated?.change_pct ?? null)}</strong></div>
+              <div><span>SMA 200</span><strong>{formatPrice(calculated?.sma_200)}</strong></div>
+              <div><span>ATR 14</span><strong>{formatPrice(calculated?.atr_14)}</strong></div>
+              <div><span>ÚLTIMA SESSÃO</span><strong>{market.freshness.last_session}</strong></div>
+            </div>
+            <CandleChart candles={market.candles} symbol={market.symbol} />
+          </>
+        ) : (
+          <div className="chart-empty-state">
+            <div className="chart-empty-grid" aria-hidden="true"><span /><span /><span /><span /><i /><i /><i /></div>
+            <div className="chart-empty-copy"><div className="panel-kicker">Área de trabalho pronta</div><h3>{publicMode ? "Insira dados reais para começar" : "O gráfico será preenchido ao conectar uma fonte"}</h3><p>{publicMode ? "O arquivo permanece no seu navegador e não é enviado para o TradingLAB. Depois de carregar, use Cursor, Mover, Nível, Linha e Marcar." : "No computador do laboratório, o snapshot privado é carregado automaticamente. Se estiver em outro dispositivo, insira um CSV validado para trabalhar localmente."}</p><button className="button button-primary" type="button" onClick={() => candleFileInput.current?.click()}>Inserir candles</button></div>
+          </div>
+        )}
+        <div className="chart-footnote">{market ? `${market.freshness.message} Os indicadores são calculados sobre a série completa antes do recorte visual.` : "Nenhum preço é inventado: sem dados válidos, o gráfico permanece vazio."}</div>
+      </section>
+    );
+  }
+
   function renderLanding() {
     return (
       <section className="landing page-stack">
@@ -1337,7 +1451,9 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
           </div>
         </section>
 
-        <section className="landing-section">
+        {renderMarketPreview({ publicMode: true })}
+
+        <section id="public-features" className="landing-section">
           <div className="section-intro"><div className="eyebrow">A plataforma</div><h2>Ferramentas para operar melhor informado.</h2><p>A camada pública mostra como a experiência funciona. Depois do login, cada pessoa vê as ferramentas compatíveis com sua permissão — e o proprietário pode conectar seu ambiente local para trabalhar com dados reais.</p></div>
           <div className="landing-feature-grid">
             <article className="landing-feature"><span className="feature-number">01</span><h3>Gráficos completos</h3><p>Veja candles, volume e indicadores em contexto para entender o movimento do ativo, não apenas um preço isolado.</p></article>
@@ -1347,7 +1463,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
           </div>
         </section>
 
-        <section className="landing-section landing-split-section">
+        <section id="public-how-to-use" className="landing-section landing-split-section">
           <div className="landing-panel-copy"><div className="eyebrow">Como usar</div><h2>Tudo começa no painel certo.</h2><div className="landing-step-list"><div><span>01</span><p><strong>Entrar.</strong> Conheça a experiência pública e faça login para abrir o aplicativo.</p></div><div><span>02</span><p><strong>Selecionar.</strong> Escolha ativo, estratégia, período e fonte de dados.</p></div><div><span>03</span><p><strong>Simular.</strong> Execute um cenário com capital virtual, custos e regras explícitas.</p></div><div><span>04</span><p><strong>Acompanhar.</strong> Visualize candles, patrimônio, risco e origem dos números.</p></div></div></div>
           <div className="metric-explainer"><div className="panel-kicker">Métricas sem complicação</div><h3>O painel mostra o que importa.</h3><div className="metric-definition"><strong>CAGR</strong><span>ritmo anualizado do resultado; ajuda a comparar períodos diferentes.</span></div><div className="metric-definition"><strong>Sharpe</strong><span>retorno comparado à oscilação; mostra a relação entre ganho e risco.</span></div><div className="metric-definition"><strong>Drawdown</strong><span>a maior queda do patrimônio; mostra o desconforto no caminho.</span></div><div className="metric-definition"><strong>Fricção</strong><span>custos estimados por negociação; revela quanto o cenário depende de custos baixos.</span></div></div>
         </section>
@@ -1412,6 +1528,8 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
             <div className="workspace-actions"><button className="button button-primary" onClick={() => setActiveView("experiments")}>Abrir ferramentas de pesquisa <span aria-hidden="true">→</span></button></div>
           </article>
         </section>
+
+        {renderMarketPreview()}
 
         <section className="metric-grid" aria-label="Resumo filtrado">
           <MetricCard
@@ -1708,12 +1826,21 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
   }
 
   const visibleActiveView: ViewId = !isOwner && (activeView === "market" || activeView === "portfolio") ? "overview" : activeView;
+  function openCandleImporter() {
+    if (candleFileInput.current) {
+      candleFileInput.current.click();
+      return;
+    }
+    setActiveView("overview");
+    window.setTimeout(() => candleFileInput.current?.click(), 0);
+  }
 
   if (visibleActiveView === "landing") {
     return (
       <main className="public-shell">
         <header className="public-header">
           <div className="public-brand"><AppMark /><div><strong>TradingLAB</strong><span>Trading tools · decisão com controle</span></div></div>
+          <nav className="public-tool-nav" aria-label="Atalhos da apresentação"><a href="#market-preview">Mercado</a><a href="#public-features">Ferramentas</a><a href="#public-how-to-use">Como usar</a></nav>
           <div className="public-header-actions">
             {viewer ? <button className="auth-link auth-link-primary" onClick={() => setActiveView("overview")}>Abrir aplicativo</button> : <a className="auth-link auth-link-primary" href={signInHref}>Entrar com ChatGPT</a>}
           </div>
@@ -1732,6 +1859,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     ["experiments", "Experiments", "⌘"],
     ["provenance", "Data & provenance", "⌬"],
   ];
+  const workspaceTabs = [...onlineNavigation, ...researchNavigation];
   const viewContent = visibleActiveView === "overview" ? renderOverview() : visibleActiveView === "market" ? renderMarket() : visibleActiveView === "experiments" ? renderExperiments() : visibleActiveView === "portfolio" ? renderPortfolio() : renderProvenance();
 
   return (
@@ -1744,7 +1872,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
       </aside>
       <div className="main-column">
         <header className="topbar"><div className="mobile-brand"><AppMark /><strong>TradingLAB</strong></div><div className="breadcrumb"><span>TradingLAB</span><b>/</b><strong>{activeView === "overview" ? "Home / dashboard" : activeView === "market" ? "Market data" : activeView === "experiments" ? "Experiments" : activeView === "portfolio" ? "Portfolio replay" : "Data & provenance"}</strong></div><div className="topbar-right"><span className="sync-label"><span className="status-dot" /> {isOwner ? (localApiAvailable ? "Snapshot local conectado" : "Workspace privado") : "Public research"}</span>{viewer ? <><span className="viewer-label">{viewer.displayName}</span><a className="auth-link" href={signOutHref}>Sair</a></> : <a className="auth-link auth-link-primary" href={signInHref}>Entrar com ChatGPT</a>}</div></header>
-        <div className="content"><div className="filter-strip"><div className="filter-title"><span className="filter-icon">≡</span><strong>View filters</strong><span>{filteredRows.length} rows</span></div><div className="filter-control"><span className="filter-control-label">Strategy</span><select aria-label="Strategy" value={strategy} onChange={(event) => setStrategy(event.target.value)}><option value="ALL">All strategies</option>{STRATEGIES.map((item) => <option key={item} value={item}>{labelForStrategy(item)}</option>)}</select></div><div className="filter-control"><span className="filter-control-label">Asset</span><select aria-label="Asset" value={asset} onChange={(event) => setAsset(event.target.value)}><option value="ALL">All assets</option>{ASSETS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><div className="filter-control"><span className="filter-control-label">Split</span><select aria-label="Split" value={split} onChange={(event) => setSplit(event.target.value)}><option value="ALL">All splits</option>{SPLITS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><button className="reset-button" onClick={resetData}>Limpar dados</button></div>{viewContent}</div>
+        <div className="content"><div className="workspace-tabbar"><nav aria-label="Abas do workspace">{workspaceTabs.map(([id, label, icon]) => <button className={visibleActiveView === id ? "workspace-tab active" : "workspace-tab"} onClick={() => setActiveView(id)} key={id}><span aria-hidden="true">{icon}</span>{label}</button>)}</nav><button className="button button-outline workspace-import-button" type="button" onClick={openCandleImporter}>Inserir candles</button></div><div className="filter-strip"><div className="filter-title"><span className="filter-icon">≡</span><strong>View filters</strong><span>{filteredRows.length} rows</span></div><div className="filter-control"><span className="filter-control-label">Strategy</span><select aria-label="Strategy" value={strategy} onChange={(event) => setStrategy(event.target.value)}><option value="ALL">All strategies</option>{STRATEGIES.map((item) => <option key={item} value={item}>{labelForStrategy(item)}</option>)}</select></div><div className="filter-control"><span className="filter-control-label">Asset</span><select aria-label="Asset" value={asset} onChange={(event) => setAsset(event.target.value)}><option value="ALL">All assets</option>{ASSETS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><div className="filter-control"><span className="filter-control-label">Split</span><select aria-label="Split" value={split} onChange={(event) => setSplit(event.target.value)}><option value="ALL">All splits</option>{SPLITS.map((item) => <option key={item} value={item}>{item}</option>)}</select></div><button className="reset-button" onClick={resetData}>Limpar dados</button></div>{viewContent}</div>
         <footer className="footer"><span>TradingLAB · Quant / Systematic Research Lab</span><span>Research first · evidence before execution</span></footer>
       </div>
     </main>
