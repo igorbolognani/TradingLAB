@@ -32,7 +32,9 @@ test("server-renders the TradingLAB control room", async () => {
   assert.match(html, /Gráfico de mercado/i);
   assert.match(html, /Entrar com ChatGPT/i);
   assert.match(html, /public-shell/i);
-  assert.match(html, /O mercado em um espaço de trabalho mais claro/i);
+  assert.match(html, /Leia o mercado\. Decida com controle/i);
+  assert.match(html, /About &amp; usage/i);
+  assert.doesNotMatch(html, /public-how-to-use/i);
   assert.doesNotMatch(html, /Research loop|Quant \/ systematic research lab|Pesquisa auditável|Um laboratório/i);
   assert.doesNotMatch(html, /class="sidebar"/i);
   assert.doesNotMatch(html, /Home \/ dashboard/i);
@@ -99,7 +101,8 @@ test("keeps site assets inside the app source", async () => {
   assert.match(client, /V1\.0/);
   assert.match(client, /Paper monitor/);
   assert.match(client, /api\/alpaca\/direct\/status/);
-  assert.match(client, /Candles completos/);
+  assert.match(client, /About &amp; Usage/);
+  assert.match(client, /ASSET_DESCRIPTIONS/);
   assert.match(client, /Project Holdout/);
   assert.match(client, /public-shell/);
   assert.match(client, /Workspace/);
@@ -113,6 +116,7 @@ test("keeps site assets inside the app source", async () => {
   assert.match(client, /Linha/);
   assert.match(client, /Desfazer/);
   const paper = await readFile(new URL("../app/paper-control.tsx", import.meta.url), "utf8");
+  assert.match(paper, /Candles completos/);
   assert.match(paper, /data_age_seconds/);
   assert.match(paper, /Paper conectado/);
   assert.match(paper, /Cancelar todas/);

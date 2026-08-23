@@ -26,14 +26,14 @@ export function InfoDisclosure({ title, children }: { title: string; children: R
   );
 }
 
-type AssetDescription = {
+export type AssetDescription = {
   name: string;
   exposure: string;
   role: string;
   watch: string;
 };
 
-const ASSET_DESCRIPTIONS: Record<string, AssetDescription> = {
+export const ASSET_DESCRIPTIONS: Record<string, AssetDescription> = {
   SPY: {
     name: "SPDR S&P 500 ETF Trust",
     exposure: "um conjunto amplo de ações de grandes empresas dos Estados Unidos",

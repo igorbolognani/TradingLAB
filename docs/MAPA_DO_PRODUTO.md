@@ -85,12 +85,14 @@ Antes das funções futuras de Execution, o produto já separa duas experiência
 para não confundir apresentação com operação:
 
 - **Landing pública:** primeira tela compartilhável, sem barra lateral e sem
-  dados operacionais. Explica o que o laboratório faz e como interpretar seus
-  resultados.
+  dados operacionais. Apresenta o produto, suas ferramentas e o fluxo curto de
+  uso.
+- **About & Usage:** guia público e autenticado em uma única leitura linear,
+  com telas, ativos, gráficos, métricas, dados, limites e contato.
 - **Aplicativo autenticado:** dashboard e ferramentas de uso. A navegação é
   dividida em **Workspace** (dashboard, Paper, Market data e Portfolio),
-  **Research** (Experiments e o resumo Data & trust) e **Manage** (Profile,
-  Settings, Help e Admin para o proprietário). O status `LIVE DESATIVADO` fica
+  **Research** (Experiments e o resumo Data & trust) e **Manage** (About &
+  Usage, Profile, Settings, Help e Admin para o proprietário). O status `LIVE DESATIVADO` fica
   visível porque replay e Paper controlado não são execução live.
 
 Isso permite que outra pessoa conheça o produto sem receber o snapshot Yahoo ou

@@ -4,9 +4,9 @@ import type { ChangeEvent, PointerEvent as ReactPointerEvent, WheelEvent as Reac
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import PaperControl from "./paper-control";
-import { AssetHelp, HelpDot, InfoDisclosure } from "./ui";
+import { ASSET_DESCRIPTIONS, AssetHelp, HelpDot, InfoDisclosure } from "./ui";
 
-type ViewId = "landing" | "overview" | "paper" | "market" | "experiments" | "portfolio" | "provenance" | "profile" | "settings" | "help" | "admin";
+type ViewId = "landing" | "about" | "overview" | "paper" | "market" | "experiments" | "portfolio" | "provenance" | "profile" | "settings" | "help" | "admin";
 
 type ResearchLabProps = {
   isOwner: boolean;
@@ -1049,6 +1049,9 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
   const [tooltipsEnabled, setTooltipsEnabled] = useState(true);
   const [compactMode, setCompactMode] = useState(false);
   const [persistDrawings, setPersistDrawings] = useState(true);
+  const [workspaceLabel, setWorkspaceLabel] = useState("TradingLAB workspace");
+  const [defaultSymbol, setDefaultSymbol] = useState("SPY");
+  const [displayTimezone, setDisplayTimezone] = useState("America/New_York");
   const [strategy, setStrategy] = useState("ALL");
   const [asset, setAsset] = useState("ALL");
   const [split, setSplit] = useState("ALL");
@@ -1084,6 +1087,12 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
         if (typeof stored.tooltipsEnabled === "boolean") setTooltipsEnabled(stored.tooltipsEnabled);
         if (typeof stored.compactMode === "boolean") setCompactMode(stored.compactMode);
         if (typeof stored.persistDrawings === "boolean") setPersistDrawings(stored.persistDrawings);
+        if (typeof stored.workspaceLabel === "string" && stored.workspaceLabel.trim()) setWorkspaceLabel(stored.workspaceLabel);
+        if (typeof stored.defaultSymbol === "string" && ASSETS.includes(stored.defaultSymbol)) {
+          setDefaultSymbol(stored.defaultSymbol);
+          setCandleSymbol(stored.defaultSymbol);
+        }
+        if (typeof stored.displayTimezone === "string") setDisplayTimezone(stored.displayTimezone);
       } catch {
         // UI preferences are optional; the workspace remains usable when storage is unavailable.
       }
@@ -1095,12 +1104,12 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     try {
       window.localStorage.setItem(
         "tradinglab-ui-settings",
-        JSON.stringify({ tooltipsEnabled, compactMode, persistDrawings }),
+        JSON.stringify({ tooltipsEnabled, compactMode, persistDrawings, workspaceLabel, defaultSymbol, displayTimezone }),
       );
     } catch {
       // UI preferences are best-effort only.
     }
-  }, [compactMode, persistDrawings, tooltipsEnabled]);
+  }, [compactMode, defaultSymbol, displayTimezone, persistDrawings, tooltipsEnabled, workspaceLabel]);
 
   const navigate = useCallback((view: ViewId) => {
     setActiveView(view);
@@ -1426,9 +1435,8 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
           <div>
             <div className="panel-kicker">{publicMode ? "Market workspace" : "Chart workspace"}</div>
             <h2>{publicMode ? "Gráfico de mercado" : "Seu gráfico principal"}</h2>
-            <p className="panel-copy">{publicMode ? "Veja como o workspace funciona e carregue um CSV real para experimentar candles, zoom, cursor e marcações." : "O gráfico fica no centro do trabalho: acompanhe preço, volume, indicadores e contexto antes de abrir outra ferramenta."}</p>
           </div>
-          <span className={`api-badge ${market ? "api-online" : "api-offline"}`}><span />{market ? `${market.symbol} · ${market.freshness.realtime_active ? "tempo real" : "histórico"}` : publicMode ? "pronto para dados" : localApiAvailable ? "snapshot conectado" : "aguardando fonte"}</span>
+          <div className="panel-heading-tools"><span className={`api-badge ${market ? "api-online" : "api-offline"}`}><span />{market ? `${market.symbol} · ${market.freshness.realtime_active ? "tempo real" : "histórico"}` : publicMode ? "pronto para dados" : localApiAvailable ? "snapshot conectado" : "aguardando fonte"}</span><HelpDot label="Sobre o gráfico"><strong className="help-popover-title">Gráfico interativo</strong><span className="help-popover-copy">Passe o mouse ou toque em uma barra para ler OHLCV. Cursor, mover, nível, linha e marcador ficam disponíveis quando os candles estão carregados.</span></HelpDot></div>
         </div>
         <div className="chart-workspace-controls">
           <div className="chart-source-note"><span>FONTE</span><strong>{market ? market.source.provider : sourceLabel}</strong></div>
@@ -1468,34 +1476,35 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
       <section className="landing page-stack">
         <section className="landing-hero">
           <div className="landing-hero-copy">
-            <div className="eyebrow">Trading workspace · V1.0</div>
-            <h1>O mercado em um espaço de trabalho mais claro.</h1>
-            <p className="hero-copy">Gráficos, métricas e simulações em uma interface profissional para observar, testar e acompanhar decisões com capital virtual.</p>
+            <div className="eyebrow">Trading workspace</div>
+            <h1>Leia o mercado. Decida com controle.</h1>
+            <p className="hero-copy">Gráficos interativos, métricas e simulação em um espaço profissional para acompanhar suas decisões.</p>
             <div className="hero-actions">
               {viewer ? <button className="button button-primary" onClick={() => navigate("overview")}>Abrir aplicativo <span aria-hidden="true">→</span></button> : <a className="button button-primary" href={signInHref}>Entrar com ChatGPT <span aria-hidden="true">→</span></a>}
+              <button className="button button-quiet" type="button" onClick={() => navigate("about")}>About &amp; usage</button>
             </div>
             <div className="landing-trust" aria-label="Princípios do produto">
-              <span><i>✓</i> dados com origem</span>
+              <span><i>✓</i> mercado identificado</span>
               <span><i>✓</i> capital virtual</span>
               <span><i>✓</i> controle por usuário</span>
             </div>
           </div>
           <div className="landing-signal-card" aria-label="Fluxo de uso das ferramentas TradingLAB">
-            <div className="landing-card-top"><span className="panel-kicker">Workspace preview</span><span className="live-badge"><b /> paper / virtual</span></div>
-            <div className="landing-signal-title">Observe antes de agir</div>
+            <div className="landing-card-top"><span className="panel-kicker">Workspace preview</span><span className="live-badge"><b /> capital virtual</span></div>
+            <div className="landing-signal-title">Tudo o que importa, à vista.</div>
             <div className="product-flow">
-              <div><span>01</span><strong>Mercado</strong><small>candles, volume e indicadores</small></div>
-              <div><span>02</span><strong>Cenário</strong><small>ativo, período e regra explícita</small></div>
-              <div><span>03</span><strong>Replay</strong><small>patrimônio, custos e risco</small></div>
+              <div><span>01</span><strong>Mercado</strong><small>candles e sinais</small></div>
+              <div><span>02</span><strong>Workspace</strong><small>conta e gráficos</small></div>
+              <div><span>03</span><strong>Simulação</strong><small>risco e resultado</small></div>
             </div>
-            <div className="landing-card-footer"><span>TRADINGLAB</span><strong>clareza antes da execução</strong></div>
+            <div className="landing-card-footer"><span>TRADINGLAB</span><strong>clareza antes da ação</strong></div>
           </div>
         </section>
 
         {renderMarketPreview({ publicMode: true })}
 
         <section id="public-features" className="landing-section">
-          <div className="section-intro"><div className="eyebrow">O produto</div><h2>As ferramentas essenciais, no mesmo espaço.</h2><p>O aplicativo adapta o workspace ao acesso da pessoa: mercado, gráficos, simulações, conta Paper autorizada e controles privados quando disponíveis.</p></div>
+          <div className="section-intro"><div className="eyebrow">O produto</div><h2>Ferramentas essenciais, no mesmo espaço.</h2></div>
           <div className="landing-feature-grid">
             <article className="landing-feature"><span className="feature-number">01</span><h3>Gráfico interativo</h3><p>Candles, zoom, cursor, linhas, níveis, marcações, volume e médias móveis.</p></article>
             <article className="landing-feature"><span className="feature-number">02</span><h3>Simulação</h3><p>Compare patrimônio, exposição, custos e risco usando dinheiro virtual.</p></article>
@@ -1504,13 +1513,15 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
           </div>
         </section>
 
-        <section id="public-how-to-use" className="landing-section landing-split-section">
-          <div className="landing-panel-copy"><div className="eyebrow">Fluxo de uso</div><h2>Um caminho simples para começar.</h2><div className="landing-step-list"><div><span>01</span><p><strong>Entrar.</strong> Abra o aplicativo com sua conta.</p></div><div><span>02</span><p><strong>Escolher.</strong> Selecione ativo, período e ferramenta.</p></div><div><span>03</span><p><strong>Explorar.</strong> Leia o gráfico e teste um cenário.</p></div><div><span>04</span><p><strong>Acompanhar.</strong> Confira resultado, risco e origem.</p></div></div></div>
-          <div className="landing-info-stack"><InfoDisclosure title="O que significam as métricas?"><p><strong>CAGR</strong> é o ritmo anualizado; <strong>Sharpe</strong> relaciona retorno e oscilação; <strong>drawdown</strong> é a maior queda do patrimônio; <strong>fricção</strong> representa custos estimados.</p></InfoDisclosure><InfoDisclosure title="Como os dados são tratados?"><p>O painel identifica provedor, horário, timezone, completude, latência e qualidade. Quando não existe dado válido, a interface mostra vazio em vez de inventar preço.</p></InfoDisclosure><InfoDisclosure title="O que não fica ativo automaticamente?"><p>Uma simulação não é recomendação. Ações externas, live trading e acesso a dinheiro real dependem de permissões e controles separados.</p></InfoDisclosure></div>
+        <section className="landing-quick-flow" aria-label="Resumo do uso">
+          <div><span>01</span><strong>Entre</strong><small>Abra seu workspace.</small></div>
+          <div><span>02</span><strong>Escolha</strong><small>Ativo, período e ferramenta.</small></div>
+          <div><span>03</span><strong>Interaja</strong><small>Leia, simule e acompanhe.</small></div>
+          <div><span>04</span><strong>Confira</strong><small>Resultado, risco e origem.</small></div>
         </section>
 
         <section className="landing-access">
-          <div><div className="eyebrow">Pronto para explorar?</div><h2>{viewer ? "Abra seu workspace." : "Entre no TradingLAB."}</h2><p>{viewer ? `Conectado como ${viewer.displayName}. As ferramentas disponíveis aparecem após a entrada.` : "Faça login para abrir o aplicativo e continuar com seu próprio espaço de trabalho."}</p></div>
+          <div><div className="eyebrow">Pronto para explorar?</div><h2>{viewer ? "Abra seu workspace." : "Entre no TradingLAB."}</h2></div>
           {viewer ? <button className="button button-primary" onClick={() => navigate("overview")}>Abrir aplicativo →</button> : <a className="button button-primary" href={signInHref}>Entrar com ChatGPT →</a>}
         </section>
       </section>
@@ -1522,9 +1533,8 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
       <>
         <section className="hero-grid">
           <div>
-            <div className="eyebrow">Workspace / dashboard · V1.0</div>
-            <h1>Veja o que está acontecendo, em um só lugar.</h1>
-            <p className="hero-copy">Escolha um ativo, leia o gráfico e abra Paper ou replay quando quiser. Os dados, limites e permissões ficam visíveis sem ocupar o centro da tela.</p>
+            <div className="eyebrow">Dashboard · {workspaceLabel}</div>
+            <h1>Seu mercado, em um só lugar.</h1>
             <div className="hero-actions">
               <button className="button button-primary" onClick={() => navigate(isOwner ? "market" : "paper")}>{isOwner ? "Abrir Market data" : "Abrir Paper workspace"} <span aria-hidden="true">→</span></button>
               <button className="button button-quiet" onClick={() => navigate("provenance")}>Ver origem dos dados</button>
@@ -1533,8 +1543,8 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
           <div className="hero-note">
             <div className="note-icon">⌁</div>
             <div>
-              <strong>Workspace pronto</strong>
-              <p>{isOwner ? "Dados locais e Paper monitor disponíveis quando conectados." : "Conecte sua conta para acompanhar seu próprio Paper."}</p>
+              <strong>{isOwner ? "Privado + Paper" : "Conta conectada"}</strong>
+              <span>{isOwner ? "dados locais disponíveis" : "dados da sua conta"}</span>
             </div>
             <span className="status-dot" aria-label="ativo" />
           </div>
@@ -1544,17 +1554,13 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
           <article className="panel workspace-mode-card workspace-online-card">
             <div className="panel-kicker">Trading workspace</div>
             <h2>{isOwner ? "Mercado e portfólio no mesmo painel" : "Sua conta e seu mercado"}</h2>
-            <p className="panel-copy">
-              {isOwner
-                ? "Abra candles completos e rode um replay de portfólio com dinheiro simulado. A execução externa continua desligada."
-                : "Acompanhe cotações, candles, conta e ordens da sua própria conta autorizada. Dados privados do proprietário não são carregados."}
-            </p>
+            <div className="compact-status-row"><span>{isOwner ? "candles · replay · Paper" : "cotação · conta · ordens"}</span><HelpDot label="Sobre o workspace"><span className="help-popover-copy">Use os botões abaixo para abrir uma área. A disponibilidade depende do seu acesso e do estado da fonte de dados.</span></HelpDot></div>
             <div className="workspace-badges"><span>{isOwner ? "ORDENS CONTROLADAS" : "CONTA PRÓPRIA"}</span><span>{isOwner ? "DADOS PRIVADOS" : "OAUTH"}</span>{isOwner ? <span>{alpacaConnection === "connected" ? "ALPACA PAPER · LEITURA" : "ALPACA PAPER PENDENTE"}</span> : viewer ? <span>ALPACA PAPER · OAUTH</span> : null}</div>
             <div className="workspace-actions">
               {isOwner ? <><button className="button button-outline" onClick={() => navigate("paper")}>Abrir Paper monitor</button><button className="button button-outline" onClick={() => navigate("market")}>Abrir Market data</button><button className="button button-outline" onClick={() => navigate("portfolio")}>Abrir Portfolio</button><a className="button button-primary" href="/alpaca/connect">Configurar OAuth</a></> : viewer ? <><button className="button button-outline" onClick={() => navigate("paper")}>Abrir Paper workspace</button><a className="button button-primary" href="/alpaca/connect">Conectar minha Alpaca</a></> : <span className="small-muted">Faça login para conectar sua conta.</span>}
             </div>
           </article>
-          {isOwner ? <article className="panel workspace-mode-card workspace-research-card"><div className="panel-kicker">Research tools</div><h2>Teste cenários com dados identificados</h2><p className="panel-copy">Importe resultados reais ou use a API local para Development e Validation OOS. O holdout continua protegido.</p><div className="workspace-actions"><button className="button button-primary" onClick={() => navigate("experiments")}>Abrir Experiments <span aria-hidden="true">→</span></button></div></article> : <article className="panel workspace-mode-card workspace-research-card"><div className="panel-kicker">Account tools</div><h2>Origem e preferências no seu controle</h2><p className="panel-copy">Confira a origem dos dados e ajuste a densidade, ajuda contextual e marcações do gráfico neste dispositivo.</p><div className="workspace-actions"><button className="button button-outline" onClick={() => navigate("provenance")}>Data & trust</button><button className="button button-primary" onClick={() => navigate("settings")}>Settings</button></div></article>}
+          {isOwner ? <article className="panel workspace-mode-card workspace-research-card"><div className="panel-kicker">Research tools</div><h2>Teste cenários com dados identificados</h2><div className="compact-status-row"><span>experimentos · dados · V0.6</span><HelpDot label="Sobre Research"><span className="help-popover-copy">A área privada usa resultados importados ou a API local. O holdout permanece protegido.</span></HelpDot></div><div className="workspace-actions"><button className="button button-primary" onClick={() => navigate("experiments")}>Abrir Experiments <span aria-hidden="true">→</span></button></div></article> : <article className="panel workspace-mode-card workspace-research-card"><div className="panel-kicker">Account tools</div><h2>Origem e preferências no seu controle</h2><div className="compact-status-row"><span>dados e visualização</span><HelpDot label="Sobre as ferramentas"><span className="help-popover-copy">Confira a origem dos dados ou ajuste a interface neste dispositivo.</span></HelpDot></div><div className="workspace-actions"><button className="button button-outline" onClick={() => navigate("provenance")}>Data &amp; trust</button><button className="button button-primary" onClick={() => navigate("settings")}>Settings</button></div></article>}
         </section>
 
         {renderMarketPreview()}
@@ -1677,8 +1683,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
         <div className="experiment-grid">
           <article className="panel control-panel">
             <div className="panel-kicker">Research controls</div>
-            <h2>Recorte do experimento</h2>
-            <p className="panel-copy">Os filtros alteram apenas a visualização. O dataset escolhido continua sendo identificado pelo seu manifesto.</p>
+            <h2>Recorte do experimento <HelpDot label="Sobre o recorte"><span className="help-popover-copy">Os filtros alteram a visualização. O manifesto continua identificando o dataset e o resultado original.</span></HelpDot></h2>
             <div className="field-grid">
               <label htmlFor="experiment-strategy">Estratégia<select id="experiment-strategy" value={strategy} onChange={(event) => setStrategy(event.target.value)}><option value="ALL">Todas as estratégias</option>{STRATEGIES.map((item) => <option key={item} value={item}>{labelForStrategy(item)}</option>)}</select></label>
               <label htmlFor="experiment-asset">Ativo<select id="experiment-asset" value={asset} onChange={(event) => setAsset(event.target.value)}><option value="ALL">Todos os ativos</option>{ASSETS.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
@@ -1699,7 +1704,6 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
           <article className="panel command-panel">
             <div className="panel-kicker">Reproducibility command</div>
             <h2>Comando preparado</h2>
-            <p className="panel-copy">Quando a API local não estiver conectada, esta é a ponte explícita entre a interface e o motor Python.</p>
             <pre><code>{command}</code></pre>
             <button className="button button-outline full-width" onClick={() => void copyCommand()}>Copiar comando</button>
             <div className="command-warning"><span>i</span><span>O Project Holdout é deliberadamente bloqueado nesta interface. Uma mudança após observá-lo exige nova versão.</span></div>
@@ -1717,13 +1721,12 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     return (
       <section className="page-stack">
         <div className="page-heading">
-          <div><div className="eyebrow">Market data / local snapshot</div><h1>Candles completos, com origem visível.</h1></div>
+          <div><div className="eyebrow">Market data / local snapshot</div><h1>Candles e sinais.</h1></div>
           <span className={`api-badge ${localApiAvailable ? "api-online" : "api-offline"}`}><span /> {localApiAvailable ? "Snapshot local disponível" : "API local offline"}</span>
         </div>
           <div className="market-controls panel">
             <div className="panel-kicker">Data controls</div>
-            <h2>Escolha o ativo e o recorte</h2>
-          <p className="panel-copy">Escolha entre o snapshot privado, um arquivo externo/licenciado configurado localmente ou um arquivo que ficará somente neste navegador. Não há preço gerado nem conexão com broker.</p>
+          <h2>Escolha o ativo e o recorte <HelpDot label="Sobre as fontes"><strong className="help-popover-title">Fontes disponíveis</strong><span className="help-popover-copy">Snapshot privado e arquivos carregados são fontes diferentes. O painel mostra origem, horário, qualidade e estado de completude junto do resultado.</span></HelpDot></h2>
           <div className="field-grid market-field-grid">
             <label htmlFor="candle-source">Fonte <HelpDot label="Sobre a fonte"><strong className="help-popover-title">Origem dos candles</strong><span className="help-popover-copy">A fonte informa de onde veio o preço. Snapshot privado é histórico local; arquivo externo ou do navegador depende de validação do contrato canônico.</span><span className="help-popover-footnote">A interface não inventa valores quando a fonte está ausente.</span></HelpDot><select id="candle-source" value={candleSource} onChange={(event) => setCandleSource(event.target.value as "snapshot" | "external_file" | "browser_file")}><option value="snapshot" disabled={!localDatasetId}>Snapshot privado Yahoo</option><option value="external_file" disabled={!externalFileAvailable}>Arquivo externo configurado</option><option value="browser_file" disabled={!candlePayload || candleSource !== "browser_file"}>Arquivo deste navegador</option></select></label>
             <label htmlFor="candle-symbol">Ativo <AssetHelp symbol={candleSymbol} /><select id="candle-symbol" value={candleSymbol} onChange={(event) => setCandleSymbol(event.target.value)}>{ASSETS.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
@@ -1788,12 +1791,11 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     const portfolioMetrics = portfolio?.metrics;
     return (
       <section className="page-stack">
-        <div className="page-heading"><div><div className="eyebrow">V0.6 / Portfolio reference</div><h1>Um portfólio pequeno, auditável e sem otimizador.</h1></div><span className={`api-badge ${localApiAvailable ? "api-online" : "api-offline"}`}><span /> {localApiAvailable ? "Replay local disponível" : "Importe um resultado local"}</span></div>
+        <div className="page-heading"><div><div className="eyebrow">V0.6 / Portfolio replay</div><h1>Portfolio replay.</h1></div><span className={`api-badge ${localApiAvailable ? "api-online" : "api-offline"}`}><span /> {localApiAvailable ? "Replay local disponível" : "Importe um resultado local"}</span></div>
         <div className="portfolio-grid">
           <article className="panel control-panel">
             <div className="panel-kicker">Portfolio controls</div>
-            <h2>Executar uma referência real</h2>
-            <p className="panel-copy">O replay usa o snapshot local validado, caixa inicial simulado de US$100.000 e apenas Development ou Validation OOS. O Project Holdout continua bloqueado.</p>
+            <h2>Executar replay <HelpDot label="Sobre o replay"><span className="help-popover-copy">Usa o snapshot validado, caixa virtual de US$100.000 e somente Development ou Validation OOS. O Project Holdout permanece bloqueado.</span></HelpDot></h2>
             <div className="field-grid">
               <label htmlFor="portfolio-split">Período<select id="portfolio-split" value={portfolioSplit} onChange={(event) => setPortfolioSplit(event.target.value)}><option value="development">Development</option><option value="validation_oos">Validation OOS</option></select></label>
               <label htmlFor="portfolio-method">Alocação<select id="portfolio-method" value={portfolioMethod} onChange={(event) => setPortfolioMethod(event.target.value as "equal_weight" | "inverse_vol")}><option value="equal_weight">Equal weight</option><option value="inverse_vol">Inverse volatility</option></select></label>
@@ -1835,7 +1837,6 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
             </div>
           </>
         ) : <EmptyState message="Execute o replay local ou carregue o JSON V0.6 para visualizar patrimônio, posições e fills reais." />}
-        <div className="panel roadmap-panel"><div className="panel-kicker">Product map</div><h2>Até onde o produto está preparado</h2><div className="roadmap-line">{["V0.1 Local lab", "V0.2 LEAN", "V0.3 Paper bridge", "V0.4 TradingView", "V0.5 Forex", "V0.6 Portfolio"].map((item) => <div className="roadmap-step done" key={item}><span>✓</span><strong>{item}</strong></div>)}</div></div>
       </section>
     );
   }
@@ -1857,20 +1858,45 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     );
   }
 
+  function renderAbout({ publicMode = false }: { publicMode?: boolean } = {}) {
+    return (
+      <section className="about-page">
+        <div className="about-hero">
+          <div><div className="eyebrow">About &amp; Usage</div><h1>Como usar o TradingLAB.</h1><p>Um guia único para entender o produto, navegar pelas ferramentas e interpretar os dados sem carregar explicações dentro das telas de operação.</p></div>
+          <div className="about-hero-status"><span className="source-pill">Trading workspace</span><strong>{publicMode ? "acesso público" : isOwner ? "owner workspace" : "workspace conectado"}</strong><small>capital virtual · live desativado</small></div>
+        </div>
+
+        <section className="about-section"><div className="about-section-heading"><span>01</span><div><div className="eyebrow">Comece aqui</div><h2>O fluxo em quatro movimentos.</h2></div></div><div className="about-flow-grid"><article><b>01</b><h3>Entre</h3><p>Faça login para abrir um workspace individual. O acesso define quais dados e ferramentas aparecem.</p></article><article><b>02</b><h3>Escolha</h3><p>Selecione ativo, período, fonte e ferramenta. Os campos controlam a visualização ou a execução explicitamente.</p></article><article><b>03</b><h3>Interaja</h3><p>Leia candles, use o cursor, ajuste o recorte, carregue dados e rode somente a ação disponível para sua conta.</p></article><article><b>04</b><h3>Confira</h3><p>Depois de uma carga ou replay, o resultado aparece com origem, horário, qualidade, métricas e estado.</p></article></div></section>
+
+        <section className="about-section"><div className="about-section-heading"><span>02</span><div><div className="eyebrow">Áreas do aplicativo</div><h2>O que cada tela faz.</h2></div></div><div className="about-detail-grid"><article><h3>Home / dashboard</h3><p>É o ponto de entrada. Mostra o gráfico principal, filtros sobre resultados importados, métricas resumidas e atalhos para o próximo passo.</p><p className="about-note">Usuários veem o próprio workspace; o proprietário também pode abrir dados locais, Experiments e Portfolio.</p></article><article><h3>Paper workspace</h3><p>Conecta uma conta Alpaca Paper autorizada para consultar cotação, candles, conta, buying power, posições e ordens. O painel informa transporte, idade e latência quando medidos.</p><p className="about-note">Toda ação externa depende dos gates do servidor, allowlist, limites e kill switch.</p></article><article><h3>Market data</h3><p>Carrega candles completos de uma fonte local validada ou de um arquivo escolhido. A tela mostra OHLCV, indicadores derivados, qualidade, timezone, calendário e hashes.</p><p className="about-note">Sem fonte válida, o painel permanece vazio.</p></article><article><h3>Research e Portfolio</h3><p>O proprietário pode filtrar resultados, executar uma bateria local sem holdout e rodar o replay V0.6 com caixa simulado, alocação, fills e curva de patrimônio.</p><p className="about-note">Essas ferramentas não enviam ordens e não promovem estratégias.</p></article></div></section>
+
+        <section className="about-section"><div className="about-section-heading"><span>03</span><div><div className="eyebrow">Universo inicial</div><h2>Os ativos e o que observar.</h2></div></div><div className="about-asset-grid">{Object.entries(ASSET_DESCRIPTIONS).map(([symbol, description]) => <article className="about-asset-card" key={symbol}><div className="about-asset-title"><span className="asset-badge">{symbol}</span><strong>{description.name}</strong></div><dl><div><dt>Exposição</dt><dd>{description.exposure}.</dd></div><div><dt>Função</dt><dd>{description.role}.</dd></div><div><dt>Observe</dt><dd>{description.watch}.</dd></div></dl></article>)}</div><p className="about-footnote">Os ativos são ETFs usados para comparar exposições econômicas diferentes. A descrição é educacional e não é recomendação.</p></section>
+
+        <section className="about-section"><div className="about-section-heading"><span>04</span><div><div className="eyebrow">Gráficos</div><h2>Como ler e interagir.</h2></div></div><div className="about-detail-grid about-chart-guide"><article><h3>Candles</h3><p>Cada vela resume Open, High, Low, Close e volume de um intervalo. O tooltip mostra a sessão, valores e se a barra está encerrada ou em formação.</p></article><article><h3>Ferramentas</h3><p><strong>Cursor</strong> inspeciona. <strong>Mover</strong> navega. <strong>Nível</strong> cria uma linha horizontal. <strong>Linha</strong> desenha uma tendência. <strong>Marcar</strong> registra um ponto.</p></article><article><h3>Indicadores</h3><p>SMA 20, 50 e 200 e volume podem ser ligados ou desligados. Eles ajudam a observar contexto; não geram uma ordem automaticamente.</p></article><article><h3>Desktop e mobile</h3><p>No computador, use roda para zoom e arraste com Mover. No celular, toque em uma vela, use os botões de intervalo e deslize o gráfico sem mover a página.</p></article></div></section>
+
+        <section className="about-section"><div className="about-section-heading"><span>05</span><div><div className="eyebrow">Resultados</div><h2>O que as métricas respondem.</h2></div></div><div className="about-metric-grid"><article><strong>CAGR</strong><span>ritmo anualizado aproximado do patrimônio.</span></article><article><strong>Sharpe</strong><span>retorno relativo à oscilação, com risco livre definido.</span></article><article><strong>Drawdown</strong><span>maior queda do patrimônio desde um pico.</span></article><article><strong>Exposure</strong><span>tempo em que a estratégia esteve investida.</span></article><article><strong>Turnover</strong><span>intensidade das mudanças de posição.</span></article><article><strong>Costs</strong><span>fricção modelada e seu impacto no resultado.</span></article></div><p className="about-footnote">Uma métrica isolada não prova robustez, não é recomendação e não libera execução.</p></section>
+
+        <section className="about-section"><div className="about-section-heading"><span>06</span><div><div className="eyebrow">Dados e confiança</div><h2>O que acompanha cada valor.</h2></div></div><div className="about-trust-list"><div><strong>Fonte</strong><span>provedor, versão, arquivo, horário de coleta e preço-base quando conhecidos.</span></div><div><strong>Tempo</strong><span>sessão, timezone, horário do evento, idade do dado e latência medida quando disponível.</span></div><div><strong>Qualidade</strong><span>linhas, duplicidades, ordem, valores ausentes, OHLC inválido e completude da barra.</span></div><div><strong>Proveniência</strong><span>dataset, manifesto, checksum, calendário, ações corporativas e estado histórico ou realtime.</span></div></div><p className="about-footnote">Quando a informação não existe, o TradingLAB mostra “desconhecido” ou mantém o painel vazio; não cria preço, latência ou qualidade.</p></section>
+
+        <section className="about-section"><div className="about-section-heading"><span>07</span><div><div className="eyebrow">Acesso e limites</div><h2>O que fica disponível para cada conta.</h2></div></div><div className="about-access-table"><div><strong>Usuário conectado</strong><span>workspace online, Paper da própria conta via OAuth quando autorizado, gráficos, candles e ferramentas públicas.</span></div><div><strong>Proprietário</strong><span>tudo acima, mais snapshot privado, API local, Experiments, Portfolio V0.6, Admin e controles do Paper direto.</span></div><div><strong>Todos</strong><span>nenhuma credencial aparece no navegador; live trading, custódia, depósitos e pagamento não são oferecidos nesta versão.</span></div></div></section>
+
+        <section className="about-section about-contact-section"><div className="about-section-heading"><span>08</span><div><div className="eyebrow">Ajuda e contato</div><h2>Quando precisar de suporte.</h2></div></div><div className="about-contact-grid"><p>Use o botão `?` ao lado de um campo para uma explicação curta e específica. Para dúvidas sobre acesso, dados, integração ou comportamento da conta, fale com o proprietário.</p><a className="button button-outline" href="mailto:igorbolognani@hotmail.com">Enviar mensagem</a></div></section>
+
+        <div className="about-actions"><button className="button button-primary" type="button" onClick={() => navigate(publicMode ? "landing" : "overview")}>{publicMode ? "Voltar para a apresentação" : "Abrir dashboard"} <span aria-hidden="true">→</span></button>{publicMode ? <a className="button button-outline" href={signInHref}>Entrar com ChatGPT</a> : isOwner ? <button className="button button-outline" type="button" onClick={() => navigate("admin")}>Abrir Admin</button> : null}</div>
+      </section>
+    );
+  }
+
   function renderData() {
     return (
       <section className="page-stack">
-        <div className="page-heading"><div><div className="eyebrow">Data & trust</div><h1>Veja de onde vem cada número.</h1></div><span className="source-pill">transparência</span></div>
-        <div className="trust-overview-grid">
-          <article className="panel trust-card"><span className="trust-card-icon">◎</span><div><h2>Fonte identificada</h2><p>Provedor, versão, horário de coleta e base de preço aparecem quando existem.</p></div><HelpDot label="Sobre a fonte dos dados">A fonte é o serviço ou arquivo que forneceu os candles. Sem essa informação, o valor não é plenamente rastreável.</HelpDot></article>
-          <article className="panel trust-card"><span className="trust-card-icon">✓</span><div><h2>Qualidade visível</h2><p>Completude, duplicidade, ordem das barras, ausências e manifesto ficam junto do resultado.</p></div><HelpDot label="Sobre a qualidade">Qualidade indica se o conjunto passou pelas verificações básicas antes de ser exibido.</HelpDot></article>
-          <article className="panel trust-card"><span className="trust-card-icon">◌</span><div><h2>Histórico ou realtime</h2><p>Snapshot, arquivo local e cotação realtime são estados diferentes. Latência desconhecida permanece desconhecida.</p></div><HelpDot label="Sobre realtime">Realtime significa que uma cotação está chegando agora. Um snapshot histórico não é transmissão ao vivo.</HelpDot></article>
+        <div className="page-heading"><div><div className="eyebrow">Data &amp; trust</div><h1>Origem e estado dos dados.</h1></div><button className="button button-quiet" type="button" onClick={() => navigate("about")}>About &amp; usage</button></div>
+        <div className="trust-overview-grid compact-trust-grid">
+          <article className="panel trust-card"><span className="trust-card-icon">◎</span><div><h2>Fonte</h2><strong className="status-value">identificada quando disponível</strong></div><HelpDot label="Sobre a fonte dos dados"><span className="help-popover-copy">Fonte é o serviço ou arquivo que forneceu os candles. O painel também mostra versão, horário, base de preço e arquivo quando existem.</span></HelpDot></article>
+          <article className="panel trust-card"><span className="trust-card-icon">✓</span><div><h2>Qualidade</h2><strong className="status-value">verificada antes da exibição</strong></div><HelpDot label="Sobre a qualidade"><span className="help-popover-copy">A qualidade reúne completude, duplicidade, ordem, ausências, OHLC inválido e validação do manifesto.</span></HelpDot></article>
+          <article className="panel trust-card"><span className="trust-card-icon">◌</span><div><h2>Estado</h2><strong className="status-value">histórico, arquivo ou realtime</strong></div><HelpDot label="Sobre realtime"><span className="help-popover-copy">Realtime é uma cotação recebida agora. Snapshot histórico e arquivo local não são transmissão ao vivo; latência não medida permanece desconhecida.</span></HelpDot></article>
         </div>
-        <article className="panel data-contract-card">
-          <div className="panel-heading"><div><div className="panel-kicker">Como confiar no painel</div><h2>Transparência sem sobrecarregar a tela</h2></div><span className="api-badge api-offline"><span /> não é recomendação</span></div>
-          <div className="data-contract-grid"><div><strong>RAW</strong><span>preservado na origem quando disponível</span></div><div><strong>NORMALIZED</strong><span>base utilizada para cálculos e gráficos</span></div><div><strong>TIME</strong><span>sessão, timezone e horário do evento</span></div><div><strong>STATUS</strong><span>completo, em formação ou desconhecido</span></div></div>
-          <InfoDisclosure title="Ver a explicação completa"><p>O workspace mostra os metadados necessários para uma decisão informada. O proprietário encontra hashes, manifestos, contratos, comandos de reprodução e mapa do produto em <button className="inline-button" type="button" onClick={() => navigate("admin")}>Admin</button>.</p></InfoDisclosure>
-        </article>
+        <article className="panel data-contract-card"><div className="panel-heading"><div><div className="panel-kicker">Data contract</div><h2>Metadados que acompanham o resultado</h2></div><span className="api-badge api-offline"><span /> não é recomendação</span></div><div className="data-contract-grid"><div><strong>RAW</strong><span>origem preservada quando disponível</span></div><div><strong>NORMALIZED</strong><span>base usada no cálculo</span></div><div><strong>TIME</strong><span>sessão, timezone e evento</span></div><div><strong>STATUS</strong><span>completo ou desconhecido</span></div></div><button className="button button-quiet" type="button" onClick={() => navigate("about")}>Ver como interpretar →</button></article>
       </section>
     );
   }
@@ -1879,12 +1905,13 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     const initials = viewer?.displayName.split(" ").map((part) => part[0]).slice(0, 2).join("").toUpperCase() ?? "TL";
     return (
       <section className="page-stack account-page">
-        <div className="page-heading"><div><div className="eyebrow">Account / profile</div><h1>Seu perfil e seu nível de acesso.</h1></div><span className="source-pill">sessão atual</span></div>
+        <div className="page-heading"><div><div className="eyebrow">Account / profile</div><h1>Perfil e acesso.</h1></div><span className="source-pill">sessão atual</span></div>
         <div className="profile-grid">
-          <article className="panel profile-card"><div className="profile-avatar">{initials}</div><div><h2>{isOwner ? "Proprietário local" : viewer?.displayName ?? "Visitante"}</h2><p>{isOwner ? "Sessão local do proprietário" : viewer?.email ?? "Faça login para personalizar seu workspace."}</p></div><span className="role-pill">{isOwner ? "PROPRIETÁRIO" : viewer ? "USUÁRIO CONECTADO" : "PÚBLICO"}</span></article>
-          <article className="panel access-card"><div className="panel-kicker">Access scope</div><h2>O que aparece para você</h2><div className="access-list"><div><span>Workspace online</span><strong>disponível</strong></div><div><span>Conta Alpaca própria</span><strong>{viewer ? "via OAuth" : "após login"}</strong></div><div><span>Pesquisa local privada</span><strong>{isOwner ? "proprietário" : "restrita"}</strong></div><div><span>Live trading</span><strong className="negative">bloqueado</strong></div></div></article>
+          <article className="panel profile-card"><div className="profile-avatar">{initials}</div><div><h2>{isOwner ? "Proprietário local" : viewer?.displayName ?? "Visitante"}</h2><span className="role-pill">{isOwner ? "PROPRIETÁRIO" : "USUÁRIO CONECTADO"}</span></div></article>
+          <article className="panel access-card"><div className="panel-kicker">Access scope</div><h2>Permissões atuais</h2><div className="access-list"><div><span>Workspace online</span><strong>disponível</strong></div><div><span>Conta Alpaca própria</span><strong>{viewer ? "via OAuth" : "após login"}</strong></div><div><span>Pesquisa local privada</span><strong>{isOwner ? "proprietário" : "restrita"}</strong></div><div><span>Live trading</span><strong className="negative">bloqueado</strong></div></div></article>
         </div>
-        <article className="panel profile-session"><div><div className="panel-kicker">Session</div><h2>Conta reconhecida pelo ChatGPT</h2><p className="panel-copy">As permissões são definidas no servidor. Credenciais da Alpaca não são exibidas nesta página.</p></div>{viewer ? <a className="button button-outline" href={signOutHref}>Sair</a> : <a className="button button-primary" href={signInHref}>Entrar</a>}</article>
+        <article className="panel profile-fields-panel"><div className="panel-heading"><div><div className="panel-kicker">Identity &amp; workspace</div><h2>Dados da sessão</h2></div><HelpDot label="Sobre estes campos"><span className="help-popover-copy">Identidade e permissões vêm do login. O nome do workspace é uma preferência local deste navegador.</span></HelpDot></div><div className="profile-fields"><label>Nome de exibição<input value={viewer?.displayName ?? "Proprietário local"} readOnly /></label><label>Email<input value={viewer?.email ?? "sessão local"} readOnly /></label><label>Nome do workspace<input value={workspaceLabel} maxLength={48} onChange={(event) => setWorkspaceLabel(event.target.value)} /></label></div></article>
+        <article className="panel profile-session"><div><div className="panel-kicker">Session</div><h2>Conta reconhecida pelo ChatGPT</h2><span className="small-muted">Credenciais da Alpaca não são exibidas nesta página.</span></div>{viewer ? <a className="button button-outline" href={signOutHref}>Sair</a> : <a className="button button-primary" href={signInHref}>Entrar</a>}</article>
       </section>
     );
   }
@@ -1892,12 +1919,12 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
   function renderSettings() {
     return (
       <section className="page-stack settings-page">
-        <div className="page-heading"><div><div className="eyebrow">Workspace / settings</div><h1>Ajuste a interface ao seu jeito de trabalhar.</h1></div><span className="source-pill">salvo neste dispositivo</span></div>
+        <div className="page-heading"><div><div className="eyebrow">Workspace / settings</div><h1>Preferências do workspace.</h1></div><span className="source-pill">salvo neste dispositivo</span></div>
         <div className="settings-grid">
-          <article className="panel settings-panel"><div className="panel-kicker">Visualização</div><h2>Preferências do workspace</h2><div className="settings-list"><label className="setting-row" htmlFor="setting-tooltips"><span><strong>Ajuda contextual</strong><small>Mostra o pequeno ? junto dos campos e controles.</small></span><input id="setting-tooltips" aria-label="Ajuda contextual" type="checkbox" checked={tooltipsEnabled} onChange={(event) => setTooltipsEnabled(event.target.checked)} /></label><label className="setting-row" htmlFor="setting-compact"><span><strong>Modo compacto</strong><small>Reduz espaços para caber mais informação na tela.</small></span><input id="setting-compact" aria-label="Modo compacto" type="checkbox" checked={compactMode} onChange={(event) => setCompactMode(event.target.checked)} /></label><label className="setting-row" htmlFor="setting-drawings"><span><strong>Preservar marcações do gráfico</strong><small>Salva linhas e níveis neste dispositivo, por ativo.</small></span><input id="setting-drawings" aria-label="Preservar marcações do gráfico" type="checkbox" checked={persistDrawings} onChange={(event) => setPersistDrawings(event.target.checked)} /></label></div></article>
-          <article className="panel settings-panel"><div className="panel-kicker">Safety defaults</div><h2>Limites que não mudam aqui</h2><div className="settings-list readonly-settings"><div className="setting-row"><span><strong>Live trading</strong><small>Não existe caminho ativo para dinheiro real.</small></span><b>OFF</b></div><div className="setting-row"><span><strong>Holdout</strong><small>Não é executado pela interface.</small></span><b>PROTEGIDO</b></div><div className="setting-row"><span><strong>Credenciais</strong><small>Ficam no servidor ou na autorização oficial.</small></span><b>SERVER-SIDE</b></div></div></article>
+          <article className="panel settings-panel"><div className="panel-kicker">Visualização</div><h2>Configurações pessoais</h2><div className="settings-form-grid"><label>Ativo padrão <AssetHelp symbol={defaultSymbol} /><select value={defaultSymbol} onChange={(event) => { setDefaultSymbol(event.target.value); setCandleSymbol(event.target.value); }}>{ASSETS.map((item) => <option key={item}>{item}</option>)}</select></label><label>Fuso exibido <HelpDot label="Sobre o fuso exibido"><span className="help-popover-copy">Define a preferência de leitura dos horários apresentados pela interface. Não altera os timestamps originais nem os cálculos.</span></HelpDot><select value={displayTimezone} onChange={(event) => setDisplayTimezone(event.target.value)}><option>America/New_York</option><option>Europe/Madrid</option><option>UTC</option></select></label></div><div className="settings-list"><label className="setting-row" htmlFor="setting-tooltips"><span><strong>Ajuda contextual</strong><HelpDot label="Sobre ajuda contextual"><span className="help-popover-copy">Exibe os ícones `?` ao lado de campos e controles.</span></HelpDot></span><input id="setting-tooltips" aria-label="Ajuda contextual" type="checkbox" checked={tooltipsEnabled} onChange={(event) => setTooltipsEnabled(event.target.checked)} /></label><label className="setting-row" htmlFor="setting-compact"><span><strong>Modo compacto</strong><HelpDot label="Sobre modo compacto"><span className="help-popover-copy">Reduz espaços para mostrar mais controles e resultados na tela.</span></HelpDot></span><input id="setting-compact" aria-label="Modo compacto" type="checkbox" checked={compactMode} onChange={(event) => setCompactMode(event.target.checked)} /></label><label className="setting-row" htmlFor="setting-drawings"><span><strong>Preservar marcações</strong><HelpDot label="Sobre marcações"><span className="help-popover-copy">Salva linhas, níveis e marcadores neste dispositivo, por ativo.</span></HelpDot></span><input id="setting-drawings" aria-label="Preservar marcações do gráfico" type="checkbox" checked={persistDrawings} onChange={(event) => setPersistDrawings(event.target.checked)} /></label></div></article>
+          <article className="panel settings-panel"><div className="panel-kicker">Safety defaults</div><h2>Limites fixos</h2><div className="settings-list readonly-settings"><div className="setting-row"><span><strong>Live trading</strong><HelpDot label="Sobre live trading"><span className="help-popover-copy">Não existe caminho ativo para enviar dinheiro real nesta versão.</span></HelpDot></span><b>OFF</b></div><div className="setting-row"><span><strong>Holdout</strong><HelpDot label="Sobre holdout"><span className="help-popover-copy">O Project Holdout não é executado nem ajustado pela interface.</span></HelpDot></span><b>PROTEGIDO</b></div><div className="setting-row"><span><strong>Credenciais</strong><HelpDot label="Sobre credenciais"><span className="help-popover-copy">Ficam no servidor ou na autorização oficial; não são salvas nestas preferências.</span></HelpDot></span><b>SERVER-SIDE</b></div></div></article>
         </div>
-        <article className="panel settings-note"><HelpDot label="Por que estas configurações são locais?">Preferências visuais não devem alterar dados, cálculos ou regras de execução. Elas ficam apenas neste navegador.</HelpDot><span>As preferências alteram aparência e interação; não alteram resultados, estratégias ou permissões.</span></article>
+        <article className="panel settings-note"><HelpDot label="Sobre preferências locais"><span className="help-popover-copy">Estas opções mudam aparência e interação. Não alteram dados, cálculos, estratégias ou permissões.</span></HelpDot><span>Preferências locais ativas: {defaultSymbol} · {displayTimezone}</span></article>
       </section>
     );
   }
@@ -1905,12 +1932,8 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
   function renderHelp() {
     return (
       <section className="page-stack help-page">
-        <div className="page-heading"><div><div className="eyebrow">Help / guide</div><h1>Orientação rápida, quando você precisar.</h1></div><span className="source-pill">sem excesso de texto</span></div>
-        <div className="help-grid">
-          <article className="panel help-intro"><div className="help-mark">?</div><div><h2>Como navegar</h2><p>Use a barra lateral para trocar de área. No gráfico, passe o mouse sobre uma barra, use a roda para zoom e escolha uma ferramenta para mover ou marcar.</p></div></article>
-          <article className="panel help-contact"><div className="panel-kicker">Contact</div><h2>Fale com o proprietário</h2><p>Para dúvidas sobre acesso, dados ou integração, envie uma mensagem pelo canal de contato.</p><a className="button button-outline" href="mailto:igorbolognani@hotmail.com">Enviar mensagem</a></article>
-        </div>
-        <div className="help-topics"><InfoDisclosure title="Dashboard"><p>O Dashboard reúne o gráfico principal, o resumo filtrado e os atalhos para Paper, Market data e Portfolio quando sua conta possui essa permissão.</p></InfoDisclosure><InfoDisclosure title="Gráfico"><p>Cursor inspeciona uma barra; Mover navega; Nível e Linha desenham; Marcar registra um ponto. SMA e volume podem ser ligados ou desligados.</p></InfoDisclosure><InfoDisclosure title="Paper workspace"><p>Mostra conta, poder de compra, cotações, candles, posições e ordens da conta autorizada. O status de segurança informa quando uma ação está bloqueada.</p></InfoDisclosure><InfoDisclosure title="Dados e confiança"><p>A página Data & trust resume origem e qualidade. O proprietário também pode abrir Admin para contratos, hashes e comandos de reprodução.</p></InfoDisclosure></div>
+        <div className="page-heading"><div><div className="eyebrow">Help / contact</div><h1>Ajuda rápida.</h1></div><button className="button button-primary" type="button" onClick={() => navigate("about")}>Abrir About &amp; usage</button></div>
+        <div className="help-action-grid"><article className="panel help-action-card"><span className="help-mark">?</span><div><h2>Precisa entender uma tela?</h2><span className="small-muted">Abra o guia completo em uma única página.</span><button className="button button-outline" type="button" onClick={() => navigate("about")}>Ver guia completo</button></div></article><article className="panel help-action-card"><span className="help-mark">⌘</span><div><h2>Quer ajustar a interface?</h2><span className="small-muted">Ativo padrão, fuso, densidade e marcações.</span><button className="button button-outline" type="button" onClick={() => navigate("settings")}>Abrir Settings</button></div></article><article className="panel help-action-card"><span className="help-mark">@</span><div><h2>Falar com o proprietário</h2><span className="small-muted">Acesso, dados ou integração.</span><a className="button button-outline" href="mailto:igorbolognani@hotmail.com">Enviar mensagem</a></div></article></div>
       </section>
     );
   }
@@ -1930,17 +1953,18 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     window.setTimeout(() => candleFileInput.current?.click(), 0);
   }
 
-  if (visibleActiveView === "landing") {
+  const publicAbout = visibleActiveView === "about" && !viewer && !isOwner;
+  if (visibleActiveView === "landing" || publicAbout) {
     return (
       <main className="public-shell">
         <header className="public-header">
-          <div className="public-brand"><Image className="public-logo" src="/tradinglab-logo.svg" width={500} height={112} alt="TradingLAB — Trading tools · decisão com controle" priority /></div>
-          <nav className="public-tool-nav" aria-label="Atalhos da apresentação"><a href="#market-preview">Mercado</a><a href="#public-features">Ferramentas</a><a href="#public-how-to-use">Como usar</a></nav>
+          <button className="public-brand public-brand-button" type="button" onClick={() => navigate("landing")} aria-label="Voltar para a apresentação"><Image className="public-logo" src="/tradinglab-logo.svg" width={500} height={112} alt="TradingLAB — Trading tools · decisão com controle" priority /></button>
+          <nav className="public-tool-nav" aria-label="Atalhos da apresentação">{publicAbout ? <button type="button" onClick={() => navigate("landing")}>← apresentação</button> : <><a href="#market-preview">Mercado</a><a href="#public-features">Ferramentas</a><button type="button" onClick={() => navigate("about")}>About &amp; usage</button></>}</nav>
           <div className="public-header-actions">
             {viewer ? <button className="auth-link auth-link-primary" onClick={() => navigate("overview")}>Abrir aplicativo</button> : <a className="auth-link auth-link-primary" href={signInHref}>Entrar com ChatGPT</a>}
           </div>
         </header>
-        <div className="public-content">{renderLanding()}</div>
+        <div className="public-content">{publicAbout ? renderAbout({ publicMode: true }) : renderLanding()}</div>
         <footer className="public-footer"><span>TradingLAB · clareza antes da execução</span><span>Sem ordens externas · sem capital real</span></footer>
       </main>
     );
@@ -1956,6 +1980,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     ["provenance", "Data & trust", "⌬"],
   ];
   const manageNavigation: Array<[ViewId, string, string]> = [
+    ["about", "About & usage", "i"],
     ["profile", "Profile", "◉"],
     ["settings", "Settings", "⚙"],
     ["help", "Help & contact", "?"],
@@ -1973,6 +1998,8 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
             ? renderPortfolio()
             : visibleActiveView === "provenance"
               ? renderData()
+              : visibleActiveView === "about"
+                ? renderAbout()
               : visibleActiveView === "admin"
                 ? renderProvenance()
                 : visibleActiveView === "profile"
@@ -1988,6 +2015,7 @@ export default function ResearchLab({ isOwner, viewer, signInHref, signOutHref, 
     experiments: "Experiments",
     portfolio: "Portfolio replay",
     provenance: "Data & trust",
+    about: "About & usage",
     profile: "Profile",
     settings: "Settings",
     help: "Help & contact",

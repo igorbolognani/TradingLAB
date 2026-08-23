@@ -8,13 +8,14 @@ pública e o workspace operacional voltem a misturar objetivos.
 ### Landing pública
 
 É a página compartilhável. Ela apresenta o produto, mostra uma prévia
-interativa, resume o fluxo de trabalho e oferece login no início e no final.
+interativa, resume o valor do workspace e oferece login no início e no final.
 Não exibe a barra lateral do aplicativo, snapshots privados, resultados
 importados ou comandos técnicos.
 
-As explicações detalhadas ficam em tópicos recolhíveis. O objetivo é permitir
-que uma pessoa entenda o valor do produto sem transformar a primeira tela em um
-manual.
+O conteúdo de orientação saiu da landing e passou para a página pública
+**About & Usage**. A landing vende a ideia rapidamente; About & Usage concentra
+o guia completo em uma leitura linear, com fluxo, telas, ativos, gráficos,
+métricas, dados, acesso, limites e contato.
 
 ### Aplicativo autenticado
 
@@ -25,7 +26,7 @@ navegação principal:
 | --- | --- | --- |
 | Workspace | Home, Paper, Market data, Portfolio replay | Paper para usuários conectados; Market e Portfolio para owner |
 | Research | Experiments, Data & trust | Experiments para owner; resumo de dados para usuários |
-| Manage | Profile, Settings, Help & contact, Admin/use tips | Admin somente owner |
+| Manage | About & usage, Profile, Settings, Help & contact, Admin/use tips | Admin somente owner |
 
 No mobile, a barra lateral vira um menu deslizante. O conteúdo principal não
 repete as abas: a toolbar superior mostra apenas a página atual e as ações
@@ -35,10 +36,15 @@ relevantes.
 
 - **Workspace** mostra informação para operar a ferramenta: candles, cotações,
   posições, ordens Paper, filtros, métricas e gráficos.
-- **Data & trust** mostra somente um resumo compreensível de fonte, qualidade,
-  horário, completude e estado histórico/realtime.
+- **About & usage** concentra a explicação completa do produto em uma página
+  única, acessível antes e depois do login.
+- **Data & trust** mostra somente um resumo operacional de fonte, qualidade,
+  horário, completude e estado histórico/realtime; o detalhe conceitual fica no
+  About & usage.
 - **Admin/use tips** concentra manifestos, hashes, contratos, parâmetros fixos,
   mapa do produto, status de evidência e comandos de reprodução.
+- **Help & contact** oferece atalhos para About & usage, Settings e contato; não
+  duplica o manual dentro da tela de uso.
 - Ajuda contextual aparece como um pequeno `?` junto ao campo. O texto abre no
   hover ou foco e pode ser desligado em Settings. Ativos mostram nome, tipo de
   exposição, função no universo e pontos de atenção; os demais campos explicam
@@ -71,7 +77,10 @@ Settings controla apenas a apresentação do navegador:
 
 - ajuda contextual;
 - modo compacto;
-- persistência de marcações.
+- persistência de marcações;
+- ativo padrão;
+- fuso preferido para leitura;
+- nome local do workspace.
 
 Essas opções não alteram dados, cálculos, estratégias, permissões ou gates de
 Paper/Live.
